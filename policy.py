@@ -285,7 +285,7 @@ class Policy:
             else:
                 print(colorize(f'All the categories found in the database are used in rules.', Fore.GREEN))
         date: str = datetime.now().strftime("%Y%m%d")
-        html_file: Path = Path(f'filter-{VERSION}-policy-{date}.html')
+        html_file: Path = Path(f'ac_rennes_eple_filter-{VERSION}-policy-{date}.html')
         HTMLRenderer().render(
             'policy.html',
             {

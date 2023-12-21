@@ -586,7 +586,7 @@ class PolicyController:
         print(header)
         date: str = datetime.now().strftime("%Y%m%d")
         html_file: Path = Path(
-            f'filter-{VERSION}-{self.profile.upper()}-{self.public_ip}-{date}-{ProxyConfig().type}.html')
+            f'ac_rennes_eple_filter-{VERSION}-{self.profile.upper()}-{self.public_ip}-{date}-{ProxyConfig().type}.html')
         HTMLRenderer().render(
             'report.html',
             {

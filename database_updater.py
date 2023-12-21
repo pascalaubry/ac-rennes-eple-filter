@@ -7,7 +7,7 @@ import requests
 import tarfile
 import time
 from dns.exception import DNSException
-from requests.exceptions import SSLError, ProxyError
+from requests.exceptions import SSLError, ProxyError, ConnectionError
 
 from database import Database
 from web_client import WebClient
