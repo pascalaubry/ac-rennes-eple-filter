@@ -1,0 +1,321 @@
+rules:
+  -
+    category: blacklist-CLG-LYC-PERS
+    description: Sites bloqués par l'Académique (tou·tes les utilisateur·ices)
+    auth:
+      all: deny
+  -
+    category: blacklist-CLG-LYC
+    description: Sites bloqués par l'Académique (collégien·nes et lycéen·nes)
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: blacklist-CLG
+    description: Sites bloqués par l'Académique (collégien·nes)
+    auth:
+      clg: deny
+  -
+    category: whitelist-PERS-LYC-CLG
+    description: Sites autorisés par l'Académique (tou·tes les utilisateur·ices)
+    auth:
+      all: allow
+  -
+    category: whitelist-PERS-LYC
+    description: Sites autorisés par l'Académique (personnels et lycéen·nes)
+    auth:
+      lyc: allow
+      per: allow
+  -
+    category: whitelist-PERS
+    description: Sites autorisés par l'Académique (personnels)
+    auth:
+      per: allow
+  -
+    category: liste_blanche
+    description: Liste blanche de sites institutionnels
+    auth:
+      all: allow
+  -
+    category: examen_pix
+    description: Sites utilisés pour la certification PIX
+    auth:
+      all: allow
+  -
+    category: adult
+    description: Sites adultes allant de l'érotique à la pornographie
+    auth:
+      all: deny
+  -
+    category: agressif
+    description: Sites racistes, antisémites, incitant à la haine
+    auth:
+      all: deny
+  -
+    category: cryptojacking
+    description: Détournement pour miner des crypto-monnaies
+    auth:
+      all: deny
+  -
+    category: ddos
+    description: Sites permettant des dénis de services
+    auth:
+      all: deny
+  -
+    category: dangerous_material
+    description: Sites décrivant la création de matériels dangereux
+    auth:
+      all: deny
+  -
+    category: dating
+    description: Sites de rencontres
+    auth:
+      all: deny
+  -
+    category: dialer
+    description: Sites composant des numéros de téléphone surtaxé
+    auth:
+      all: deny
+  -
+    category: drogue
+    description: Sites liés à la drogue
+    auth:
+      all: deny
+  -
+    category: hacking
+    description: Sites de piratage et d'agressions informatiques
+    auth:
+      all: deny
+  -
+    category: malware
+    description: Sites injectant des logiciels malveillants
+    auth:
+      all: deny
+  -
+    category: marketingware
+    description: Sites de marketing très spéciaux
+    auth:
+      all: deny
+  -
+    category: mixed_adult
+    description: Sites contenant des portions adultes
+    auth:
+      all: deny
+  -
+    category: mobile-phone
+    description: Sites pour les mobiles (sonneries, etc.)
+    auth:
+      all: deny
+  -
+    category: phishing
+    description: Sites d’hameçonnages, de pièges bancaires ou autres
+    auth:
+      all: deny
+  -
+    category: publicite
+    description: Sites liés à la publicité
+    auth:
+      all: deny
+  -
+    category: redirector
+    description: Sites permettant de contourner le filtrage internet
+    auth:
+      all: deny
+  -
+    category: sect
+    description: Sites liés aux sectes
+    auth:
+      all: deny
+  -
+    category: sexual_education
+    description: Sites parlant d’éducation sexuelle pouvant être détectés comme pornographiques
+    auth:
+      all: deny
+  -
+    category: stalkerware
+    description: Sites diffusant des outils d'espionnage'
+    auth:
+      all: deny
+  -
+    category: strict_redirector
+    description: Sites de contournement du filtrage avec les moteurs de recherche classiques
+    auth:
+      all: deny
+  -
+    category: strong_redirector
+    description: Idem strict_redirector mais pour Google et cie on ne bloque que certains termes
+    auth:
+      all: deny
+  -
+    category: tricheur
+    description: Sites expliquant comment tricher aux examens
+    auth:
+      all: deny
+  -
+    category: vpn
+    description: Sites de contournement du filtrage à l’aide de VPNs
+    auth:
+      all: deny
+  -
+    category: warez
+    description: Sites distribuant des logiciels ou vidéos pirates
+    auth:
+      all: deny
+  -
+    category: arjel
+    description: Sites de paris en ligne certifiés par l'ARJEL
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: associations_religieuses
+    description: Sites d'associations religieuses
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: astrology
+    description: Sites d'astrologie
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: bank
+    description: Sites de banques en ligne
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: bitcoin
+    description: Sites de bitcoin
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: celebrity
+    description: Sites traitant l'actualité dite people
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: chat
+    description: Sites de dialogue et conversation en ligne
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: download
+    description: Sites permettant de télécharger des logiciels
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: forums
+    description: Forums
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: gambling
+    description: Sites de jeux en ligne, casino…
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: games
+    description: Sites de jeux (en ligne ou de téléchargement)
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: lingerie
+    description: Sites de lingerie
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: remote-control
+    description: Sites de prise de contrôle à distance
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: reaffected
+    description: Sites ayant changé de propriétaire et contenu
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: audio-video
+    description: Sites orientés vers l'audio et la vidéo
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: social_networks
+    description: Sites de réseaux sociaux
+    auth:
+      clg: deny
+      lyc: deny
+  -
+    category: shopping
+    description: Sites de vente et achat en ligne
+    auth:
+      clg: deny
+  -
+    category: blog
+    description: Sites hébergeant des blogs
+  -
+    category: child
+    description: Sites autorisés pour des enfants
+  -
+    category: cleaning
+    description: Sites pour désinfecter et mettre à jour des ordinateurs
+  -
+    category: cooking
+    description: Sites de recettes de cuisine
+  -
+    category: doh
+    description: Serveurs DNS over HTTP ou équivalent
+  -
+    category: educational_games
+    description: Sites de jeux éducatifs
+  -
+    category: filehosting
+    description: Sites hébergeant des contenus (vidéos, images, sons)
+  -
+    category: financial
+    description: Sites d'informations financières, bourses
+  -
+    category: jobsearch
+    description: Sites pour trouver un emploi
+  -
+    category: liste_bu
+    description: Sites éducatifs pour la bibliothèque univ-tlse1.fr
+  -
+    category: manga
+    description: Sites liés à l'univers des mangas et de la bande dessinée
+  -
+    category: press
+    description: Sites de presse d'information
+  -
+    category: radio
+    description: Sites de radios sur internet
+  -
+    category: shortener
+    description: Sites proposant des raccourcisseurs d'URL
+  -
+    category: sports
+    description: Sites liés aux sports
+  -
+    category: translation
+    description: Sites de traduction
+  -
+    category: update
+    description: Sites de mise à jour pour les OS ou les logiciels
+  -
+    category: webmail
+    description: Messagerie sur internet (hotmail, etc.)
+control:
+  - pascal-aubry.fr
+  - ac-orleans.fr

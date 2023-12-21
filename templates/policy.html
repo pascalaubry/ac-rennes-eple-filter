@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Filter {{ controller.version }} - Politique de filtrage académique
+{% endblock title %}
+
+{% block head %}
+    <style>
+        .table-rules, .table-database {
+            width: auto;
+        }
+        .table-database .domains, .table-database .categories {
+            text-align: right;
+        }
+    </style>
+{% endblock head %}
+
+{% block content %}
+    <h1>Politique de filtrage académique</h1>
+    <h2>Règles</h2>
+    <table class="table table-hover table-sm table-rules">
+        <thead class="table-dark sticky-top">
+            <tr>
+                <th>Catégorie</th>
+                <th>Domaines</th>
+                <th>CLG</th>
+                <th>LYC</th>
+                <th>PER</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rule in policy.rules %}
+                <tr>
+                    <td>{{ rule.category }}</td>
+                    <td>{{ rule.domains_number }}</td>
+                    <td>{% autoescape off %}{{ rule.html_auth|get_item:'clg' }}{% endautoescape %}</td>
+                    <td>{% autoescape off %}{{ rule.html_auth|get_item:'lyc' }}{% endautoescape %}</td>
+                    <td>{% autoescape off %}{{ rule.html_auth|get_item:'per' }}{% endautoescape %}</td>
+                    <td>{{ rule.description }}</td>
+                </tr>
+            {% endfor %}
+            <tr>
+                <td><em>Par défaut</em></td>
+                <td>&nbsp;</td>
+                <td><i class="bi bi-check-square-fill" style="color: green"></i></td>
+                <td><i class="bi bi-check-square-fill" style="color: green"></i></td>
+                <td><i class="bi bi-check-square-fill" style="color: green"></i></td>
+                <td><em>Tous les sites qui ne sont pas explicitement interdits sont autorisés.</em></td>
+            </tr>
+        </tbody>
+    </table>
+    <h2>Base de données</h2>
+    <table class="table table-database">
+        <tbody>
+            <tr>
+                <td>Catégories</td>
+                <td class="categories">{{ policy.categories_number }}</td>
+            </tr>
+            <tr>
+                <td>Domaines</td>
+                <td class="domains">{{ policy.domains_number }}</td>
+            </tr>
+        </tbody>
+    </table>
+{% endblock content %}

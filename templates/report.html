@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Filter {{ controller.version }} - Rapport de conformité
+{% endblock title %}
+
+{% block head %}
+    <style>
+        .compliant {
+            color: green;
+        }
+        .error {
+            color: orange;
+        }
+        .too-permissive, .too-strict, .not-compliant {
+            color: red;
+        }
+    </style>
+{% endblock head %}
+
+{% block content %}
+    <h1>Rapport de conformité de la mise en œuvre de la politique académique de filtrage en EPLE</h1>
+    <h2>Informations</h2>
+    <table class="table">
+        <thead></thead>
+        <tbody>
+            <tr>
+                <td>Nom de la machine</td>
+                <td>{{ controller.hostname }}</td>
+            </tr>
+            <tr>
+                <td>Adresse IP privée</td>
+                <td>{{ controller.private_ip }}</td>
+            </tr>
+            <tr>
+                <td>Adresse IP publique</td>
+                <td>{{ controller.public_ip }}{%if controller.public_hostname %} ({{ controller.public_hostname }}){% endif %}</td>
+            </tr>
+            <tr>
+                <td>Profil utilisateur·trice</td>
+                <td>{{ controller.profile }}</td>
+            </tr>
+            <tr>
+                <td>Proxy</td>
+                <td>{{ proxy_config }}</td>
+            </tr>
+        </tbody>
+    </table>
+    <h2>Conformité à la politique académique : {{ controller.compliance_str }}</h2>
+    <table class="table">
+        <thead></thead>
+        <tbody>
+            <tr>
+                <td>URLs testées</td>
+                <td>{{ controller.test_nb }}</td>
+            </tr>
+            <tr>
+                <td><span class="compliant">Conformité</span></td>
+                <td><span class="compliant">{{ controller.compliant_nb }}</span></td>
+            </tr>
+            <tr>
+                <td><span class="too-permissive">Non-conformité (mise en œuvre trop permissive)</span></td>
+                <td><span class="too-permissive">{{ controller.too_permissive_nb }}</span></td>
+            </tr>
+            <tr>
+                <td><span class="too-strict">Non-conformité (mise en œuvre trop stricte)</span></td>
+                <td><span class="too-strict">{{ controller.too_strict_nb }}</span></td>
+            </tr>
+            <tr>
+                <td><span class="error">Erreurs d'accès</span></td>
+                <td><span class="error">{{ controller.error_nb }}</span></td>
+            </tr>
+        </tbody>
+    </table>
+    <h2>Tests effectués ({{ controller.test_nb }})</h2>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>URL</th>
+                <th>Catégorie concernée<br/>(politique académique)</th>
+                <th>Domaine concerné<br/>(politique académique)</th>
+                <th>Résultat attendu<br/>(politique académique)</th>
+                <th>Contrôle effectué</th>
+                <th>Conformité</th>
+            </tr>
+            <tr>
+            </tr>
+        </thead>
+        <tbody>
+            {% for url in controller.web_results %}
+                {% with web_result=controller.web_results|get_item:url %}
+                {% with domain=web_result.domain %}
+                {% with policy_expected_result=controller.policy_expected_results|get_item:domain %}
+                <tr>
+                    <td><a href="{{ url }}" target="_blank">{{ url }}</a></td>
+                    <td>{% if policy_expected_result.matching_category %}{{ policy_expected_result.matching_category }}{% else %}-{% endif %}</td>
+                    <td>{% if policy_expected_result.matching_domain %}{{ policy_expected_result.matching_domain }}{% else %}-{% endif %}</td>
+                    <td>
+                        <span class="
+                            {% if web_result.error or web_result.compliant %}
+                            {% else %}
+                                not-compliant
+                            {% endif %}">
+                        {% if policy_expected_result.allowed %}
+                            Autorisée
+                        {% else %}
+                            Interdite
+                        {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="{% if web_result.error %}error{% else %}{% if web_result.compliant %}{% else %}not-compliant{% endif %}{% endif %}">
+                            {{ web_result.status }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if web_result.error %}
+                            <span class="error">Inconnue</span>
+                        {% else %}
+                            {% if web_result.compliant %}
+                                <span class="compliant">OK</span>
+                            {% else %}
+                                {% if web_result.allowed %}
+                                    <span class="too-permissive">Trop permissive</span>
+                                {% else %}
+                                    <span class="too-strict">Trop stricte</span>
+                                {% endif %}
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endwith %}
+                {% endwith %}
+                {% endwith %}
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock content %}
