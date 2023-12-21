@@ -7,7 +7,7 @@ import requests
 import tarfile
 import time
 from dns.exception import DNSException
-from requests.exceptions import SSLError, ProxyError, ConnectionError
+from requests.exceptions import SSLError, ProxyError, ConnectionError, Timeout
 
 from database import Database
 from web_client import WebClient
@@ -64,7 +64,7 @@ class Category:
         final_url: str
         try:
             response = self.__web.get(self.__url)[0]
-        except ProxyError | SSLError | DNSException | ConnectionError:
+        except ProxyError | SSLError | DNSException | ConnectionError | Timeout:
             print(colorize(f'no response', Fore.RED))
             return False
         if 'last-modified' not in response.headers:

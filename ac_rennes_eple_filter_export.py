@@ -10,7 +10,7 @@ from ac_rennes_eple_filter import VERSION
 
 BUILD_DIR: Path = Path('build')
 DIST_DIR: Path = Path('dist')
-basename: str = f'filter-{VERSION}'
+basename: str = f'ac_rennes_eple_filter-{VERSION}'
 EXPORT_DIR: Path = Path('export')
 PROJECT_DIR: Path = EXPORT_DIR / basename
 ZIP_FILE: Path = Path(str(PROJECT_DIR) + '.zip')
@@ -55,7 +55,7 @@ def build_exe():
         '--add-data=templates/policy.html;templates',
         '--add-data=venv/Lib/site-packages/tldextract/.tld_set_snapshot;tldextract',
         '--paths=.',
-        'filter.py',
+        'ac_rennes_eple_filter.py',
     ]
     run(pyinstaller_params)
 

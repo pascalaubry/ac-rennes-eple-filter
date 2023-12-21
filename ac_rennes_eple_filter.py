@@ -17,7 +17,7 @@ from web_client import WebClient, ProxyConfig
 
 class Filter:
 
-    expected_results_file: Path = Path('expected_results.json')
+    expected_results_file: Path = Path('ac_rennes_eple_filter_expected_results.json')
 
     def __init__(self, database: Database, policy: Policy):
         self.__database: Database = database
