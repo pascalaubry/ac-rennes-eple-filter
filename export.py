@@ -6,7 +6,7 @@ from PyInstaller.__main__ import run
 from colorama import Fore
 
 from common import colorize
-from filter import VERSION
+from ac_rennes_eple_filter import VERSION
 
 BUILD_DIR: Path = Path('build')
 DIST_DIR: Path = Path('dist')
