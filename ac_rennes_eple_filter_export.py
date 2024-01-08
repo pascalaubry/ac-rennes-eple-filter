@@ -54,6 +54,7 @@ def build_exe():
         '--add-data=templates/report.html;templates',
         '--add-data=templates/policy.html;templates',
         '--add-data=venv/Lib/site-packages/tldextract/.tld_set_snapshot;tldextract',
+        '--add-data=venv/Lib/site-packages/whois/data/public_suffix_list.dat;whois/data',
         '--paths=.',
         'ac_rennes_eple_filter.py',
     ]

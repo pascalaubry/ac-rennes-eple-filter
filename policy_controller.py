@@ -161,7 +161,7 @@ class WebResult:
             return
         if response.status_code == 202:  # Stormshield
             for line in decoded_lines:
-                if re.match(r'<title>\s*HTTPS web site blocked\s*</title>', line):
+                if line.find('HTTPS web site blocked') != -1 or line.find('Blocage') != -1 or line.find('URL bloqu'):
                     print(colorize('Blocked by Stormshield ', Fore.YELLOW), end='')
                     self.status = ResultStatus.Denied
                     return
@@ -284,20 +284,25 @@ class PolicyController:
         # print(f'  domain = {domain}')
         try:
             whois_response = whois.whois(domain)
-        except PywhoisError:
+        except PywhoisError as pwe:
+            print(colorize(f'PywhoisError={str(pwe).splitlines(keepends=False)[0]} ', Fore.BLUE), end='')
             return False
         try:
             whois_domain = whois_response["domain_name"]
         except KeyError:
+            print(colorize(f'domain_name not set ', Fore.BLUE), end='')
             try:
                 whois_domain = whois_response["name"]
             except KeyError:
+                print(colorize(f'name not set ', Fore.BLUE), end='')
                 return False
         if whois_domain is None:
+            print(colorize(f'empty domain ', Fore.BLUE), end='')
             return False
         try:
-            socket.getaddrinfo(domain, 80)
-        except socket.gaierror:
+            socket.getaddrinfo(domain, 0)
+        except socket.gaierror as ge:
+            print(colorize(f'{ge} ', Fore.BLUE), end='')
             return False
         return True
 
