@@ -176,20 +176,19 @@ class Filter:
 def main():
     try:
         colorama.init()
-        print(f'Filter {VERSION} Copyright (c) {COPYRIGHT}')
-        print(f'Current directory: {Path(__file__).resolve().parents[0]}')
+        print(f'ac-rennes-eple-filter {VERSION} Copyright (c) {COPYRIGHT}')
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--update', help='update the database', action='store_true')
+        parser.add_argument('--print', help='print the policy rules', action='store_true')
+        parser.add_argument('--test', help='test a URL', dest='test_url', type=str)
+        parser.add_argument('--search', help='search for a pattern', dest='pattern', type=str)
+        parser.add_argument('--control', help='control the policy', dest='profile', type=str)
+        parser.add_argument('--optimize', help='optimize local rules', action='store_true')
+        args = parser.parse_args()
         ProxyConfig()
         database: Database = Database()
         policy: Policy = Policy(database)
         f: Filter = Filter(database, policy)
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-u', '--update', help='update the database', action='store_true')
-        parser.add_argument('-p', '--print', help='print the policy rules', action='store_true')
-        parser.add_argument('-t', '--test', help='test a URL', dest='test_url', type=str)
-        parser.add_argument('-s', '--search', help='search for a pattern', dest='search_pattern', type=str)
-        parser.add_argument('-c', '--control', help='control the policy', dest='control_profile', type=str)
-        parser.add_argument('-o', '--optimize', help='optimize local rules', action='store_true')
-        args = parser.parse_args()
         if args.update:
             f.update_database()
         elif args.print:
@@ -197,10 +196,10 @@ def main():
         elif args.test_url:
             for url in args.test_url.split(','):
                 f.test_url(url)
-        elif args.search_pattern:
-            f.search_pattern(args.search_pattern)
-        elif args.control_profile:
-            f.control_policy(args.control_profile)
+        elif args.pattern:
+            f.search_pattern(args.pattern)
+        elif args.profile:
+            f.control_policy(args.profile)
         elif args.optimize:
             f.optimize_local_rules()
         else:
