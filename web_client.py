@@ -109,10 +109,10 @@ class WebClient:
             response: requests.Response | None = None
             if method == 'head':
                 response: requests.Response = self._session.head(
-                    url, headers=headers, verify=verify, timeout=2, allow_redirects=False)
+                    url, headers=headers, verify=verify, allow_redirects=False)
             elif method == 'get':
                 response: requests.Response = self._session.get(
-                    url, headers=headers, verify=verify, timeout=2, allow_redirects=False)
+                    url, headers=headers, verify=verify, allow_redirects=False)
             else:
                 exit_program(colorize(f'Unknown method [{method}]', Fore.RED))
             if follow_redirect:
