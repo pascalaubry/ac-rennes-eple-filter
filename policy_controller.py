@@ -160,11 +160,48 @@ class WebResult:
             self.status = ResultStatus.Denied
             return
         if response.status_code == 202:  # Stormshield
+            title_https_web_site_blocked: int = False
             for line in decoded_lines:
-                if line.find('HTTPS web site blocked') != -1 or line.find('Blocage') != -1 or line.find('URL bloqu'):
-                    print(colorize('Blocked by Stormshield ', Fore.YELLOW), end='')
+                if re.match(r'<title>\s*(HTTPS web site blocked)\s*</title>', line):
+                    title_https_web_site_blocked = True
+                if line.strip() == 'Blocage':
+                    print(colorize(f'Blocked by Stormshield ({line}) ', Fore.YELLOW), end='')
                     self.status = ResultStatus.Denied
                     return
+                if matches := re.match(r'<title id="header_title">([^<]+)</title>', line.strip()):
+                    print(colorize(f'Blocked by Stormshield (policy: {matches.group(1)}) ', Fore.YELLOW), end='')
+                    self.status = ResultStatus.Denied
+                    return
+                if matches := re.match(
+                        r'<blockquote><h\d>\s*Reason\s*:\s*([^<]*)<br>.*</h\d></blockquote>', line.strip()):
+                    reason: str = matches.group(1).strip()
+                    for string in [
+                        'expired',  # The SSL server certificate is expired or not yet valid
+                        'not trusted',  # The SSL server certificate authority is not trusted
+                        'self-signed',  # The SSL server uses a self-signed certificate
+                        'requested name',  # The SSL server does not match the requested name
+                    ]:
+                        if reason.find(string) != -1:
+                            print(colorize(f'Blocked by Stormshield (SSL error: {reason}) ', Fore.YELLOW), end='')
+                            self.status = ResultStatus.SslError
+                            return
+                    for string in [
+                        'rejects the connection',  # Your administrator rejects the connection to this SSL server
+                    ]:
+                        if reason.find(string) != -1:
+                            print(colorize(f'Blocked by Stormshield (policy error: {reason}) ', Fore.YELLOW), end='')
+                            self.status = ResultStatus.Denied
+                            return
+                    print(colorize(f'Blocked by Stormshield (unknown error: {reason}) ', Fore.YELLOW), end='')
+                    self.status = ResultStatus.Denied
+                    return
+            if title_https_web_site_blocked:
+                print(colorize('HTTPS web site blocked ', Fore.YELLOW), end='')
+                for line in decoded_lines:
+                    print(colorize(line[:256], Fore.YELLOW))
+                self.status = ResultStatus.Denied
+                return
+            print(colorize('No blocking pattern found ', Fore.YELLOW), end='')
             for line in decoded_lines:
                 print(colorize(line[:256], Fore.YELLOW))
             self.status = ResultStatus.Allowed
