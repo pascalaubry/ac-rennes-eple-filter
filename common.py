@@ -4,7 +4,7 @@ import sys
 from colorama import Style
 
 
-VERSION: str = '1.6'
+VERSION: str = '1.7'
 COPYRIGHT: str = '2022-2023 Région académique Bretagne'
 PATH: Path = Path(__file__).parents[0].resolve()
 
