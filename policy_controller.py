@@ -79,7 +79,7 @@ class WebResult:
         except ConnectionError:
             self.status = ResultStatus.ConnectError
             return
-        print(f"code={response.status_code} ", end='')
+        # print(f"code={response.status_code} ", end='')
         if (final_url.startswith('http://articatech.net/block.html')
                 or final_url.startswith('https://articatech.net/block.html')):
             print(colorize(f'Blocked by Artica ', Fore.YELLOW), end=' ')
@@ -100,15 +100,22 @@ class WebResult:
                 return
             else:
                 print(colorize(f"Unknown X-Squid-Error=[{response.headers['X-Squid-Error']}] ", Fore.YELLOW), end='')
+        if response.status_code == 499:
+            print(colorize(f'Blocked by antivirus ', Fore.YELLOW), end='')
+            self.status = ResultStatus.Denied
+            return
+        decoded_content: str
         decoded_lines: list[str]
+        one_line_content: str
         encoding: str = ''
         content: bytes = response.content
         try:
-            content: bytes = response.content
             encoding = chardet.detect(content)['encoding']
             if encoding is None:
                 encoding = 'utf-8'
-            decoded_lines = content.decode(encoding).splitlines()
+            decoded_content = content.decode(encoding)
+            decoded_lines = decoded_content.splitlines()
+            one_line_content = ' '.join(decoded_lines)
         except UnicodeDecodeError as ude:
             if encoding == 'utf-8':
                 print(colorize(f'UnicodeDecodeError (encoding detected: {encoding}) {ude} ', Fore.YELLOW), end='')
@@ -116,64 +123,59 @@ class WebResult:
                 return
             try:
                 encoding = 'utf-8'
-                decoded_lines = content.decode(encoding).splitlines()
+                decoded_content = content.decode(encoding)
+                decoded_lines = decoded_content.splitlines()
+                one_line_content = ' '.join(decoded_lines)
             except UnicodeDecodeError as ude:
                 print(colorize(f'UnicodeDecodeError (encoding supposed: {encoding}) {ude} ', Fore.YELLOW), end='')
                 self.status = ResultStatus.Allowed
                 return
-        if response.status_code == 499:
-            print(colorize(f'Blocked by antivirus ', Fore.YELLOW), end='')
-            self.status = ResultStatus.Denied
-            return
         if response.status_code == 503:
-            blocked: bool = False
-            blocked_category: str | None = None
-            blocked_url: str | None = None
-            for line in decoded_lines:
-                if re.match(r'<!-- ERR_DNS_FAIL -->', line):
-                    print(colorize(f'ERR_DNS_FAIL ', Fore.YELLOW), end='')
-                    self.status = ResultStatus.DnsError
-                    return
-                elif re.match(r'<!-- ERR_CONNECT_FAIL -->', line):
-                    print(colorize(f'ERR_CONNECT_FAIL ', Fore.YELLOW), end='')
-                    self.status = ResultStatus.ConnectError
-                    return
-                elif re.match(r'<h1>Page web bloquée</h1>', line):
-                    blocked = True
-                elif matches := re.match(r'<p><b>Category:</b> (.+)</p>', line):
-                    blocked_category = matches.group(1)
-                elif matches := re.match(r'<p><b>URL:</b> (.+)</p>', line):
-                    blocked_url = matches.group(1)
-            if blocked:
-                print(f'URL {blocked_url} blocked by Artica for category {blocked_category} ', end='')
+            if re.match(r'.*<!-- ERR_DNS_FAIL -->.*', one_line_content):
+                print(colorize(f'ERR_DNS_FAIL ', Fore.YELLOW), end='')
+                self.status = ResultStatus.DnsError
+                return
+            if re.match(r'.*<!-- ERR_CONNECT_FAIL -->.*', one_line_content):
+                print(colorize(f'ERR_CONNECT_FAIL ', Fore.YELLOW), end='')
+                self.status = ResultStatus.ConnectError
+                return
+            if re.match(r'.*<h1>page web bloquée</h1>.*', one_line_content.lower()):
+                blocked_category: str | None = None
+                blocked_url: str | None = None
+                if matches := re.match(r'.*<p><b>url:</b>(.+)</p>\s*<p><b>category:</b>(.+)</p>.*', one_line_content.lower()):
+                    blocked_url = matches.group(1).strip()
+                    blocked_category = matches.group(2).strip()
+                print(colorize(f'URL {blocked_url} blocked for category {blocked_category} ', Fore.YELLOW), end='')
                 self.status = ResultStatus.Denied
                 return
+            else:
+                print(colorize(f'[<h1>page web bloquée</h1> not found] one_line_content={one_line_content}', Fore.BLUE))
             for line in decoded_lines:
                 match: bool = False
-                if re.match(r'<h1>Page web bloquée</h1>', line):
+                if re.match(r'.*<h1>page web bloquée</h1>.*', line.lower()):
                     match = True
-                if re.match(r'<p><b>Category:</b> (.+)</p>', line):
+                if re.match(r'.*<b>category:\s*</b>.*', line.lower()):
                     match = True
-                if re.match(r'<p><b>URL:</b> (.+)</p>', line):
+                if re.match(r'.*<b>url:\s*</b>.*', line.lower()):
                     match = True
-                print(colorize(line[:256], Fore.RED if match else Fore.YELLOW))
+                print(colorize(line[:256], Fore.BLUE if match else Fore.YELLOW))
             self.status = ResultStatus.Denied
             return
         if response.status_code == 202:  # Stormshield
             title_https_web_site_blocked: int = False
             for line in decoded_lines:
-                if re.match(r'<title>\s*(HTTPS web site blocked)\s*</title>', line):
+                if re.match(r'.*<title>\s*(HTTPS web site blocked)\s*</title>.*', line):
                     title_https_web_site_blocked = True
                 if line.strip() == 'Blocage':
                     print(colorize(f'Blocked by Stormshield ({line}) ', Fore.YELLOW), end='')
                     self.status = ResultStatus.Denied
                     return
-                if matches := re.match(r'<title id="header_title">([^<]+)</title>', line.strip()):
+                if matches := re.match(r'.*<title id="header_title">([^<]+)</title>.*', line):
                     print(colorize(f'Blocked by Stormshield (policy: {matches.group(1)}) ', Fore.YELLOW), end='')
                     self.status = ResultStatus.Denied
                     return
                 if matches := re.match(
-                        r'<blockquote><h\d>\s*Reason\s*:\s*([^<]*)<br>.*</h\d></blockquote>', line.strip()):
+                        r'.*<blockquote><h\d>\s*Reason\s*:\s*([^<]*)<br>.*</h\d></blockquote>.*', line):
                     reason: str = matches.group(1).strip()
                     for string in [
                         'expired',  # The SSL server certificate is expired or not yet valid
@@ -196,7 +198,7 @@ class WebResult:
                     self.status = ResultStatus.Denied
                     return
             if title_https_web_site_blocked:
-                print(colorize('HTTPS web site blocked ', Fore.YELLOW), end='')
+                print(colorize('HTTPS web site blocked (no reason found in content) ', Fore.YELLOW), end='')
                 for line in decoded_lines:
                     print(colorize(line[:256], Fore.YELLOW))
                 self.status = ResultStatus.Denied
@@ -211,11 +213,11 @@ class WebResult:
                 # <meta
                 #   http-equiv="refresh"
                 #   content="0; url=https://85-NAC01.colleges35.sib.fr/captive-portal?destination_url=<url>">
-                if re.match(r'\s*<meta\s+http-equiv="refresh"\s+content=".*colleges35\.sib\.fr.*"\s*>', line):
+                if re.match(r'.*<meta\s+http-equiv="refresh"\s+content=".*colleges35\.sib\.fr.*".*>', line):
                     print(colorize('Not authenticated by Artica ', Fore.YELLOW), end='')
                     self.status = ResultStatus.NotAuthenticated
                     return
-                if re.match(r'<title>AUTHENTIFICATION</title>', line):
+                if re.match(r'.*<title>AUTHENTIFICATION</title>.*', line):
                     print(colorize('Not authenticated by Stormshield ', Fore.YELLOW), end='')
                     self.status = ResultStatus.NotAuthenticated
                     return
@@ -260,11 +262,15 @@ class PolicyController:
             print('Retrieving public IP... ', end='')
         self.public_ip: str | None = None
         self.public_hostname: str | None = None
+        ip_url: str = 'https://api.ipify.org'
         try:
             self.public_ip = web.get(
-                'https://api.ipify.org', follow_redirect=True, code_200_needed=True, verbose=verbose, verify=False
+                ip_url, follow_redirect=True, code_200_needed=True, verbose=verbose, verify=False
             )[0].content.decode('utf8')
             self.public_hostname = socket.gethostbyaddr(self.public_ip)[0]
+        except ConnectionError:
+            print(colorize(f'could not reach {ip_url} ', Fore.YELLOW), end='')
+            pass
         except socket.herror:
             pass
         except AttributeError:

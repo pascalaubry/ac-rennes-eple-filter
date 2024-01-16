@@ -1,5 +1,10 @@
 rules:
   -
+    category: whitelist-BYPASS-AUTH
+    description: Sites autorisés sans authentification (tou·tes les utilisateur·ices)
+    auth:
+      all: allow
+  -
     category: blacklist-CLG-LYC-PERS
     description: Sites bloqués par l'Académique (tou·tes les utilisateur·ices)
     auth:

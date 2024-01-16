@@ -176,6 +176,7 @@ class CategoryOrigin:
 class RennesOrigin(CategoryOrigin):
 
     category_names: List[str] = [
+        'whitelist-BYPASS-AUTH',
         'blacklist-CLG-LYC-PERS',
         'blacklist-CLG-LYC',
         'blacklist-CLG',
