@@ -6,6 +6,9 @@
 
 {% block head %}
     <style>
+        .table-informations, .table-summary, .table-tests {
+            width: auto;
+        }
         .compliant {
             color: green;
         }
@@ -15,15 +18,22 @@
         .too-permissive, .too-strict, .not-compliant {
             color: red;
         }
+        .result, .expected-result, .compliance {
+            white-space: nowrap;
+        }
     </style>
 {% endblock head %}
 
 {% block content %}
     <h1>Rapport de conformité de la mise en œuvre de la politique académique de filtrage en EPLE</h1>
     <h2>Informations</h2>
-    <table class="table">
+    <table class="table table-informations table-hover">
         <thead></thead>
         <tbody>
+            <tr>
+                <td>Version</td>
+                <td>{{ version }}</td>
+            </tr>
             <tr>
                 <td>Nom de la machine</td>
                 <td>{{ controller.hostname }}</td>
@@ -47,7 +57,7 @@
         </tbody>
     </table>
     <h2>Conformité à la politique académique : {{ controller.compliance_str }}</h2>
-    <table class="table">
+    <table class="table table-summary table-hover">
         <thead></thead>
         <tbody>
             <tr>
@@ -72,16 +82,14 @@
             </tr>
         </tbody>
     </table>
-    <h2>Tests effectués ({{ controller.test_nb }})</h2>
-    <table class="table">
-        <thead>
+    <h2>Contrôles effectués ({{ controller.test_nb }})</h2>
+    <table class="table table-tests table-hover">
+        <thead class="table-dark sticky-top">
             <tr>
-                <th>URL</th>
-                <th>Catégorie concernée<br/>(politique académique)</th>
-                <th>Domaine concerné<br/>(politique académique)</th>
-                <th>Résultat attendu<br/>(politique académique)</th>
-                <th>Contrôle effectué</th>
-                <th>Conformité</th>
+                <th class="url">URL [> redirection]</th>
+                <th class="result">Résultat obtenu</th>
+                <th class="expected_result">Résultat attendu (politique académique)</th>
+                <th class="compliance">Conformité</th>
             </tr>
             <tr>
             </tr>
@@ -89,13 +97,30 @@
         <tbody>
             {% for url in controller.web_results %}
                 {% with web_result=controller.web_results|get_item:url %}
+                {% with final_url=web_result.final_url %}
                 {% with domain=web_result.domain %}
                 {% with policy_expected_result=controller.policy_expected_results|get_item:domain %}
-                <tr>
-                    <td><a href="{{ url }}" target="_blank">{{ url }}</a></td>
-                    <td>{% if policy_expected_result.matching_category %}{{ policy_expected_result.matching_category }}{% else %}-{% endif %}</td>
-                    <td>{% if policy_expected_result.matching_domain %}{{ policy_expected_result.matching_domain }}{% else %}-{% endif %}</td>
-                    <td>
+                <tr class="
+                    {% if web_result.error %}
+                        table-warning
+                    {% else %}
+                        {% if web_result.compliant %}
+                            table-success
+                        {% else %}
+                            table-danger
+                        {% endif %}
+                    {% endif %}
+                    ">
+                    <td class="url">
+                        <a href="{{ url }}" target="_blank">{{ url }}</a>
+                        {% if final_url and url != final_url %}&gt; <a href="{{ final_url }}" target="_blank">{{ web_result.simplified_final_url }}</a>{% endif %}
+                    </td>
+                    <td class="result">
+                        <span class="{% if web_result.error %}error{% else %}{% if web_result.compliant %}{% else %}not-compliant{% endif %}{% endif %}">
+                            {{ web_result.status.report_str }}
+                        </span>
+                    </td>
+                    <td class="expected_result">
                         <span class="
                             {% if web_result.error or web_result.compliant %}
                             {% else %}
@@ -106,14 +131,10 @@
                         {% else %}
                             Interdite
                         {% endif %}
+                        ({% if policy_expected_result.matching_category %}{{ policy_expected_result.matching_category }}/{{ policy_expected_result.matching_domain }}{% else %}<em>par défaut</em>{% endif %})
                         </span>
                     </td>
-                    <td>
-                        <span class="{% if web_result.error %}error{% else %}{% if web_result.compliant %}{% else %}not-compliant{% endif %}{% endif %}">
-                            {{ web_result.status }}
-                        </span>
-                    </td>
-                    <td>
+                    <td class="compliance">
                         {% if web_result.error %}
                             <span class="error">Inconnue</span>
                         {% else %}
@@ -129,6 +150,7 @@
                         {% endif %}
                     </td>
                 </tr>
+                {% endwith %}
                 {% endwith %}
                 {% endwith %}
                 {% endwith %}

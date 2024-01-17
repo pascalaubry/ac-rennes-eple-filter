@@ -8,19 +8,19 @@ import chardet
 import time
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urlparse
-import requests
+from urllib.parse import urlparse, ParseResult
 import socket
 
 import whois
 from colorama import Fore
 from django.template.defaulttags import register
 from dns.exception import DNSException
+from requests import Response
 from requests.exceptions import SSLError, ProxyError, ConnectionError
 from whois.parser import PywhoisError
 
 from domain_checker import DomainChecker, PolicyResult
-from common import colorize, VERSION
+from common import colorize, VERSION, get_reports_dir
 from database import Database
 from html_renderer import HTMLRenderer
 from policy import Policy
@@ -40,7 +40,8 @@ class ResultStatus(IntEnum):
     Allowed = 4
     Denied = 5
 
-    def __str__(self) -> str:
+    @property
+    def report_str(self) -> str:
         match self:
             case ResultStatus.SslError:
                 return 'Erreur SSL'
@@ -57,80 +58,143 @@ class ResultStatus(IntEnum):
             case _:
                 raise ValueError
 
+    def __str__(self) -> str:
+        match self:
+            case ResultStatus.SslError:
+                return 'SSL error'
+            case ResultStatus.DnsError:
+                return 'DNS error'
+            case ResultStatus.ConnectError:
+                return 'Connection error'
+            case ResultStatus.NotAuthenticated:
+                return 'Auth error'
+            case ResultStatus.Allowed:
+                return 'Allowed'
+            case ResultStatus.Denied:
+                return 'Denied'
+            case _:
+                raise ValueError
+
 
 class WebResult:
-    def __init__(self, url: str, web: WebClient):
-        response: requests.Response | None
-        final_url: str | None
+    def __init__(self, domain: str, url: str, web: WebClient):
         self.status: ResultStatus | None = None
-        self.compliant: bool | None = None
-        self.domain = urlparse(url).netloc
-        try:
-            response, final_url = web.get(url, follow_redirect=True, code_200_needed=False, verify=False)
-        except ProxyError:
-            self.status = ResultStatus.Denied
-            return
-        except SSLError:
-            self.status = ResultStatus.SslError
-            return
-        except DNSException:
-            self.status = ResultStatus.DnsError
-            return
-        except ConnectionError:
-            self.status = ResultStatus.ConnectError
-            return
-        # print(f"code={response.status_code} ", end='')
-        if (final_url.startswith('http://articatech.net/block.html')
-                or final_url.startswith('https://articatech.net/block.html')):
-            print(colorize(f'Blocked by Artica ', Fore.YELLOW), end=' ')
-            self.status = ResultStatus.Denied
-            return
-        if 'X-Squid-Error' in response.headers:
-            if response.headers['X-Squid-Error'].startswith('ERR_ACCESS_DENIED'):
-                print(colorize(f'Denied by Squid ', Fore.YELLOW), end=' ')
-                self.status = ResultStatus.Denied
-                return
-            if response.headers['X-Squid-Error'].startswith('ERR_DNS_FAIL'):
-                print(colorize(f'DNS failed ', Fore.YELLOW), end=' ')
-                self.status = ResultStatus.DnsError
-                return
-            if response.headers['X-Squid-Error'].startswith('ERR_CONNECT_FAIL'):
-                print(colorize(f'Connect failed ', Fore.YELLOW), end=' ')
-                self.status = ResultStatus.ConnectError
-                return
+        self.domain = domain
+        parsed_url: ParseResult = urlparse(url)
+        self.url_protocol = parsed_url.scheme
+        self.url_domain = parsed_url.netloc
+        self.cached = False
+        cache_dir: Path = Path('.') / 'cache' / 'control'
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        info_cache_file = cache_dir / f'{self.url_protocol}_{self.url_domain}.info'
+        content_cache_file = cache_dir / f'{self.url_protocol}_{self.url_domain}.html'
+        self.response_code: int | None = None
+        self.response_content: str | None = None
+        self.response_headers: dict[str] | None = None
+        self.final_url: str | None = None
+        if info_cache_file.exists():
+            if time.time() - info_cache_file.lstat().st_mtime < 4 * 3600:
+                print('cached ', end='')
+                with open(info_cache_file, 'r') as f:
+                    data = json.load(f)
+                    self.status = ResultStatus(data['status'])
+                    self.final_url = data['final_url']
+                    self.response_code = data['response_code']
+                    self.response_headers = data['response_headers']
+                if content_cache_file.exists():
+                    with open(content_cache_file, 'rb') as f:
+                        self.response_content = f.read().decode('utf-8')
+                if self.final_url is not None and self.final_url != url:
+                    print(f'>>...>> {self.final_url} ', end='')
+                if self.response_code:
+                    print(colorize(
+                        f'{self.response_code} ', Fore.GREEN if self.response_code == 200 else Fore.YELLOW), end='')
+                print(f'{self.status} ', end='')
+                self.cached = True
             else:
-                print(colorize(f"Unknown X-Squid-Error=[{response.headers['X-Squid-Error']}] ", Fore.YELLOW), end='')
-        if response.status_code == 499:
-            print(colorize(f'Blocked by antivirus ', Fore.YELLOW), end='')
-            self.status = ResultStatus.Denied
-            return
-        decoded_content: str
-        decoded_lines: list[str]
-        one_line_content: str
+                print('expired ', end='')
+        if not self.cached:
+            try:
+                response: Response
+                response, self.final_url = web.get(url, follow_redirect=True, code_200_needed=False, verify=False)
+                self.__decode_response(response)
+            except ProxyError:
+                self.status = ResultStatus.Denied
+            except SSLError:
+                self.status = ResultStatus.SslError
+            except DNSException:
+                self.status = ResultStatus.DnsError
+            except ConnectionError:
+                self.status = ResultStatus.ConnectError
+            if self.status is None:
+                self.__analyse_response()
+            with open(info_cache_file, 'w') as f:
+                json.dump({
+                    'status': self.status,
+                    'final_url': self.final_url,
+                    'response_code': self.response_code,
+                    'response_headers': self.response_headers,
+                }, f)
+            if self.response_content:
+                with open(content_cache_file, 'wb') as f:
+                    f.write(self.response_content.encode('utf-8'))
+        self.compliant: bool | None = None
+
+    def __decode_response(self, response: Response):
+        self.response_code = response.status_code
+        self.response_headers = {}
+        for k in response.headers:
+            self.response_headers[k] = response.headers[k]
         encoding: str = ''
-        content: bytes = response.content
         try:
-            encoding = chardet.detect(content)['encoding']
+            encoding = chardet.detect(response.content)['encoding']
             if encoding is None:
                 encoding = 'utf-8'
-            decoded_content = content.decode(encoding)
-            decoded_lines = decoded_content.splitlines()
-            one_line_content = ' '.join(decoded_lines)
+            self.response_content = response.content.decode(encoding)
         except UnicodeDecodeError as ude:
             if encoding == 'utf-8':
-                print(colorize(f'UnicodeDecodeError (encoding detected: {encoding}) {ude} ', Fore.YELLOW), end='')
+                print(colorize(f'UnicodeDecodeError (encoding detected: {encoding}) {ude} ', Fore.YELLOW),
+                      end='')
                 self.status = ResultStatus.Allowed
                 return
             try:
                 encoding = 'utf-8'
-                decoded_content = content.decode(encoding)
-                decoded_lines = decoded_content.splitlines()
-                one_line_content = ' '.join(decoded_lines)
+                self.response_content = response.content.decode(encoding)
             except UnicodeDecodeError as ude:
-                print(colorize(f'UnicodeDecodeError (encoding supposed: {encoding}) {ude} ', Fore.YELLOW), end='')
+                print(colorize(f'UnicodeDecodeError (encoding supposed: {encoding}) {ude} ', Fore.YELLOW),
+                      end='')
                 self.status = ResultStatus.Allowed
+
+    def __analyse_response(self):
+        # print(f"code={response.status_code} ", end='')
+        if (self.final_url.startswith('http://articatech.net/block.html')
+                or self.final_url.startswith('https://articatech.net/block.html')):
+            print(colorize(f'Blocked by Artica ', Fore.YELLOW), end=' ')
+            self.status = ResultStatus.Denied
+            return
+        if 'X-Squid-Error' in self.response_headers:
+            if self.response_headers['X-Squid-Error'].startswith('ERR_ACCESS_DENIED'):
+                print(colorize(f'Denied by Squid ', Fore.YELLOW), end=' ')
+                self.status = ResultStatus.Denied
                 return
-        if response.status_code == 503:
+            if self.response_headers['X-Squid-Error'].startswith('ERR_DNS_FAIL'):
+                print(colorize(f'DNS failed ', Fore.YELLOW), end=' ')
+                self.status = ResultStatus.DnsError
+                return
+            if self.response_headers['X-Squid-Error'].startswith('ERR_CONNECT_FAIL'):
+                print(colorize(f'Connect failed ', Fore.YELLOW), end=' ')
+                self.status = ResultStatus.ConnectError
+                return
+            else:
+                print(colorize(
+                    f"Unknown X-Squid-Error=[{self.response_headers['X-Squid-Error']}] ", Fore.YELLOW), end='')
+        if self.response_code == 499:
+            print(colorize(f'Blocked by antivirus ', Fore.YELLOW), end='')
+            self.status = ResultStatus.Denied
+            return
+        response_lines: list[str] = self.response_content.splitlines()
+        one_line_content: str = ' '.join(response_lines)
+        if self.response_code == 503:
             if re.match(r'.*<!-- ERR_DNS_FAIL -->.*', one_line_content):
                 print(colorize(f'ERR_DNS_FAIL ', Fore.YELLOW), end='')
                 self.status = ResultStatus.DnsError
@@ -142,7 +206,8 @@ class WebResult:
             if re.match(r'.*<h1>page web bloquée</h1>.*', one_line_content.lower()):
                 blocked_category: str | None = None
                 blocked_url: str | None = None
-                if matches := re.match(r'.*<p><b>url:</b>(.+)</p>\s*<p><b>category:</b>(.+)</p>.*', one_line_content.lower()):
+                if matches := re.match(
+                        r'.*<p><b>url:</b>(.+)</p>\s*<p><b>category:</b>(.+)</p>.*', one_line_content.lower()):
                     blocked_url = matches.group(1).strip()
                     blocked_category = matches.group(2).strip()
                 print(colorize(f'URL {blocked_url} blocked for category {blocked_category} ', Fore.YELLOW), end='')
@@ -150,7 +215,7 @@ class WebResult:
                 return
             else:
                 print(colorize(f'[<h1>page web bloquée</h1> not found] one_line_content={one_line_content}', Fore.BLUE))
-            for line in decoded_lines:
+            for line in response_lines:
                 match: bool = False
                 if re.match(r'.*<h1>page web bloquée</h1>.*', line.lower()):
                     match = True
@@ -161,9 +226,9 @@ class WebResult:
                 print(colorize(line[:256], Fore.BLUE if match else Fore.YELLOW))
             self.status = ResultStatus.Denied
             return
-        if response.status_code == 202:  # Stormshield
+        if self.response_code == 202:  # Stormshield
             title_https_web_site_blocked: int = False
-            for line in decoded_lines:
+            for line in response_lines:
                 if re.match(r'.*<title>\s*(HTTPS web site blocked)\s*</title>.*', line):
                     title_https_web_site_blocked = True
                 if line.strip() == 'Blocage':
@@ -199,17 +264,17 @@ class WebResult:
                     return
             if title_https_web_site_blocked:
                 print(colorize('HTTPS web site blocked (no reason found in content) ', Fore.YELLOW), end='')
-                for line in decoded_lines:
+                for line in response_lines:
                     print(colorize(line[:256], Fore.YELLOW))
                 self.status = ResultStatus.Denied
                 return
             print(colorize('No blocking pattern found ', Fore.YELLOW), end='')
-            for line in decoded_lines:
+            for line in response_lines:
                 print(colorize(line[:256], Fore.YELLOW))
             self.status = ResultStatus.Allowed
             return
-        if response.status_code == 200:
-            for line in decoded_lines:
+        if self.response_code == 200:
+            for line in response_lines:
                 # <meta
                 #   http-equiv="refresh"
                 #   content="0; url=https://85-NAC01.colleges35.sib.fr/captive-portal?destination_url=<url>">
@@ -240,8 +305,27 @@ class WebResult:
     def denied(self) -> bool:
         return self.status == ResultStatus.Denied
 
+    @property
+    def simplified_final_url(self) -> str | None:
+        if not self.final_url:
+            return None
+        url: ParseResult = urlparse(self.final_url)
+        return f'{url.scheme}://{url.netloc}{f":{url.port}" if url.port else ""}{url.path if url.path else "/"}{"?..." if url.query else ""}'
+
     def set_compliant(self, compliant: bool):
         self.compliant = compliant
+
+    def __str__(self) -> str:
+        return (f'{self.__class__.__name__}('
+                f'url_protocol={self.url_protocol}, '
+                f'url_domain={self.url_domain}, '
+                f'domain={self.domain}, '
+                f'status={self.status}, '
+                f'final_url={self.final_url}, '
+                f'response_code={self.response_code}, '
+                f'response_length={len(self.response_content) if self.response_content else None}, '
+                f'response_headers={self.response_headers}'
+                f')')
 
 
 class PolicyController:
@@ -477,6 +561,7 @@ class PolicyController:
                 else:
                     first_domain = ''
             for scheme in ['http', 'https', ]:
+                item_start = time.time()
                 item_percent = 100 * item // items
                 if item > 10:
                     average_time = (time.time() - start) / item
@@ -484,41 +569,47 @@ class PolicyController:
                     eta = f'{estimated_time // 60:02}:{estimated_time % 60:02}'
                 url = f'{scheme}://{domain}/'
                 if verbose:
-                    print(f'[{item_percent:02}%] [ETA: {eta}] Testing {url}... ', end='')
-                self.web_results[url] = WebResult(url, web)
-                if self.web_results[url].status not in [ResultStatus.Denied]:
+                    print(f'[{item_percent:02}%] [ETA: {eta}] Testing {url} ', end='')
+                self.web_results[url] = WebResult(domain, url, web)
+                if self.web_results[url].error:
                     parse_result = urlparse(url)
                     if (not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', parse_result.netloc)
                             and not parse_result.netloc.startswith('www.')):
                         # TEST WWW.DOMAIN
                         www_url = url.replace('://', '://www.')
                         if verbose:
-                            print(f'{www_url}... ', end='')
-                        self.web_results[url] = WebResult(url, web)
+                            print(f'Trying {www_url} ', end='')
+                        self.web_results[url] = WebResult(domain, www_url, web)
+                if self.web_results[url].cached:
+                    items -= 1
+                else:
+                    item += 1
                 match self.web_results[url].status:
                     case ResultStatus.SslError | ResultStatus.DnsError | ResultStatus.ConnectError:
-                        print(colorize(f'error', Fore.YELLOW))
+                        print(colorize(f'{self.web_results[url].status}', Fore.YELLOW), end='')
                         self.error_urls.append(url)
                     case ResultStatus.NotAuthenticated:
-                        print(colorize(f'error', Fore.YELLOW))
+                        print(colorize(f'{self.web_results[url].status}', Fore.YELLOW), end='')
                         self.error_urls.append(url)
                     case ResultStatus.Allowed:
                         self.web_results[url].set_compliant(self.policy_expected_results[domain].allowed)
                         if self.web_results[url].compliant:
                             self.compliant_urls.append(url)
-                            print(colorize('OK', Fore.GREEN))
+                            print(colorize('OK', Fore.GREEN), end='')
                         else:
                             self.too_permissive_urls.append(url)
-                            print(colorize('too permissive', Fore.RED))
+                            print(colorize('too permissive', Fore.RED), end='')
                     case ResultStatus.Denied:
                         self.web_results[url].set_compliant(not self.policy_expected_results[domain].allowed)
                         if self.web_results[url].compliant:
                             self.compliant_urls.append(url)
-                            print(colorize('OK', Fore.GREEN))
+                            print(colorize('OK', Fore.GREEN), end='')
                         else:
                             self.too_strict_urls.append(url)
-                            print(colorize('too strict', Fore.RED))
-                item += 1
+                            print(colorize('too strict', Fore.RED), end='')
+                print(f' ({time.time() - item_start:.2f})')
+        time_spent: int = math.ceil(time.time() - start)
+        print(f'Time spent: {time_spent // 60:02}:{time_spent % 60:02}')
 
     @property
     def test_nb(self) -> int:
@@ -546,95 +637,10 @@ class PolicyController:
         return '-' if total_nb == 0 else f'{self.compliant_nb / total_nb * 100:.0f}%'
 
     def print(self):
-        print('TESTS:')
-        url_width: int = 0
-        control_strings: dict[str, str] = {}
-        compliance_strings: dict[str, str] = {}
-        policy_strings: dict[str, str] = {}
-        domain_strings: dict[str, str] = {}
-        category_strings: dict[str, str] = {}
-        control_width = len('Control')
-        compliance_width = len('Compliance')
-        policy_width = len('Policy')
-        domain_width = len('Domain')
-        category_width = len('Category')
-        for url in self.web_results:
-            url_width = max(url_width, len(url))
-            domain = urlparse(url).netloc
-            policy_result: PolicyResult = self.policy_expected_results[domain]
-            policy_strings[url] = 'allowed' if policy_result.allowed else 'denied'
-            policy_width = max(policy_width, len(policy_strings[url]))
-            domain_strings[url] = '-' if policy_result.matching_domain is None else policy_result.matching_domain
-            domain_width = max(domain_width, len(domain_strings[url]))
-            category_strings[url] = '-' if policy_result.matching_category is None else policy_result.matching_category
-            category_width = max(category_width, len(category_strings[url]))
-            web_result: WebResult = self.web_results[url]
-            control_strings[url] = str(web_result.status)
-            control_width = max(control_width, len(control_strings[url]))
-            match web_result.status:
-                case ResultStatus.SslError:
-                    compliance_strings[url] = 'error'
-                case ResultStatus.DnsError:
-                    compliance_strings[url] = 'error'
-                case ResultStatus.ConnectError:
-                    compliance_strings[url] = 'error'
-                case ResultStatus.NotAuthenticated:
-                    compliance_strings[url] = 'error'
-                case ResultStatus.Allowed:
-                    compliance_strings[url] = 'OK' if web_result.compliant else 'too permissive'
-                case ResultStatus.Denied:
-                    compliance_strings[url] = 'OK' if web_result.compliant else 'too strict'
-            compliance_width = max(compliance_width, len(compliance_strings[url]))
-        header: str = '+-{}-+-{}-+-{}-+-{}-+-{}-+-{}-+'.format(
-            '-' * url_width, '-' * category_width, '-' * domain_width, '-' * policy_width, '-' * control_width,
-            '-' * compliance_width)
-        print(header)
-        print('| {} | {} | {} | {} | {} | {} |'.format(
-            'URL'.ljust(url_width), 'Matching category'.ljust(category_width),
-            'Matching domain'.ljust(domain_width), 'Policy'.ljust(policy_width),
-            'Control'.ljust(control_width), 'Compliance'.ljust(compliance_width)))
-        print(header)
-        for url in self.web_results:
-            policy_color: str
-            control_color: str
-            compliance_color: str
-            if self.web_results[url].error:
-                policy_color = ''
-                control_color = Fore.YELLOW
-                compliance_color = Fore.YELLOW
-            elif self.web_results[url].compliant:
-                policy_color = ''
-                control_color = ''
-                compliance_color = Fore.GREEN
-            else:
-                policy_color = Fore.RED
-                control_color = Fore.RED
-                compliance_color = Fore.RED
-            print('| {} | {} | {} | {} | {} | {} |'.format(
-                url.ljust(url_width), category_strings[url].ljust(category_width),
-                domain_strings[url].ljust(domain_width),
-                colorize(policy_strings[url].ljust(policy_width), policy_color),
-                colorize(control_strings[url].ljust(control_width), control_color),
-                colorize(compliance_strings[url].ljust(compliance_width), compliance_color)
-            ))
-        total_nb: int = self.error_nb + self.compliant_nb + self.too_strict_nb + self.too_permissive_nb
-        print(header)
-        print(f'POLICY COMPLIANCE: {self.compliance_str}')
-        label_width: int = 15
-        number_width = 4
-        header = '+-{}-+-{}-+'.format('-' * label_width, '-' * number_width)
-        print(header)
-        print('| {} | {: 4d} |'.format(
-            'URLs tested'.ljust(label_width), total_nb))
-        print(header)
-        print('| {} | {: 4d} |'.format(colorize('Compliant'.ljust(label_width), Fore.GREEN), self.compliant_nb))
-        print('| {} | {: 4d} |'.format(colorize('Too permissive'.ljust(label_width), Fore.RED), self.too_permissive_nb))
-        print('| {} | {: 4d} |'.format(colorize('Too strict'.ljust(label_width), Fore.RED), self.too_strict_nb))
-        print('| {} | {: 4d} |'.format(colorize('Error'.ljust(label_width), Fore.YELLOW), self.error_nb))
-        print(header)
         date: str = datetime.now().strftime("%Y%m%d")
-        html_file: Path = Path(
-            f'ac_rennes_eple_filter-{VERSION}-{self.profile.upper()}-{self.public_ip}-{date}-{ProxyConfig().type}.html')
+        html_file: Path = (get_reports_dir()
+                           / f'ac_rennes_eple_filter-{VERSION}-{self.profile.upper()}'
+                             f'-{self.public_ip}-{date}-{ProxyConfig().type}.html')
         HTMLRenderer().render(
             'report.html',
             {
