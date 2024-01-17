@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %}
-    Filter {{ controller.version }} - Rapport de conformité
+    Filter {{ version }} - Rapport de conformité
 {% endblock title %}
 
 {% block head %}
@@ -33,6 +33,10 @@
             <tr>
                 <td>Version</td>
                 <td>{{ version }}</td>
+            </tr>
+            <tr>
+                <td>Date</td>
+                <td>{{ date }}</td>
             </tr>
             <tr>
                 <td>Nom de la machine</td>
