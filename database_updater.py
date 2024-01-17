@@ -12,7 +12,7 @@ from requests.exceptions import SSLError, ProxyError, ConnectionError, Timeout
 from database import Database
 from web_client import WebClient
 from colorama import Fore
-from common import colorize
+from common import colorize, get_download_cache_dir
 
 
 class Category:
@@ -272,7 +272,7 @@ class DatabaseUpdater:
     def __init__(self, database: Database, web: WebClient):
         super().__init__()
         self.__database = database
-        download_folder: Path = Path('download')
+        download_folder: Path = get_download_cache_dir()
         self.__origins: List[CategoryOrigin] = [
             RennesOrigin(download_folder, web, database),
             ToulouseOrigin(download_folder, web, database),
