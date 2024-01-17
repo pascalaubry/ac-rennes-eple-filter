@@ -109,10 +109,10 @@ class WebClient:
             response: requests.Response | None = None
             if method == 'head':
                 response: requests.Response = self._session.head(
-                    url, headers=headers, verify=verify, allow_redirects=False)
+                    url, headers=headers, verify=verify, allow_redirects=False, timeout=3)
             elif method == 'get':
                 response: requests.Response = self._session.get(
-                    url, headers=headers, verify=verify, allow_redirects=False)
+                    url, headers=headers, verify=verify, allow_redirects=False, timeout=3)
             else:
                 exit_program(colorize(f'Unknown method [{method}]', Fore.RED))
             if follow_redirect:
@@ -143,14 +143,14 @@ class WebClient:
             #    print(colorize(f'RemoteDisconnected({matches.group(1)}) ', Fore.YELLOW), end='')
             #    raise ce
             searches: dict[str, tuple[str, Exception]] = {
-                'RemoteDisconnected': ('RemoteDisconnected ', SSLError(),),
-                'SSLError': ('SSLError ', SSLError(),),
-                'NameResolutionError': ('NameResolutionError ', DNSException(),),
-                'ConnectTimeoutError': ('ConnectTimeoutError ', ce,),
-                'NewConnectionError': ('NewConnectionError ', ce,),
-                'ConnectionResetError': ('ConnectionResetError ', ce,),
-                'TooManyRedirects': ('TooManyRedirects ', ce,),
-                'ProxyError': ('ProxyError ', ce,),
+                'RemoteDisconnected': ('RemoteDisconnected', SSLError(),),
+                'SSLError': ('SSLError', SSLError(),),
+                'NameResolutionError': ('NameResolutionError', DNSException(),),
+                'ConnectTimeoutError': ('ConnectTimeoutError', ce,),
+                'NewConnectionError': ('NewConnectionError', ce,),
+                'ConnectionResetError': ('ConnectionResetError', ce,),
+                'TooManyRedirects': ('TooManyRedirects', ce,),
+                'ProxyError': ('ProxyError', ce,),
             }
             # print(colorize(f'ce=[{ce}] ', Fore.YELLOW), end='')
             for string in searches:
