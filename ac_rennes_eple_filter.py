@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 from domain_checker import DomainChecker
-from common import colorize, exit_program, VERSION, COPYRIGHT
+from common import colorize, exit_program, VERSION, COPYRIGHT, get_download_cache_dir, get_reports_dir
 import colorama
 from colorama import Fore, Style
 import argparse
@@ -84,8 +84,8 @@ class Filter:
                             for public, reason in useless_texts.items()
                         ])
                     print(colorize(useless_domain_texts[domain], Fore.YELLOW))
-            orig_file: Path = Path('download') / 'rennes' / (category + '.txt')
-            optimized_file: Path = Path(category + '-optimized.txt')
+            orig_file: Path = get_download_cache_dir() / 'rennes' / (category + '.txt')
+            optimized_file: Path = get_reports_dir() / (category + '-optimized.txt')
             if optimized_file.exists():
                 optimized_file.unlink()
             if len(useless_domain_texts):
@@ -112,6 +112,7 @@ class Filter:
                 color = Fore.LIGHTWHITE_EX
                 on_color = None
                 style = Style.BRIGHT
+                print(f'What do you want to do?')
                 accepted_choices: dict[str, str] = {
                     'U': '[' + colorize('U', color, on_color, style) + ']pdate the database',
                     'P': '[' + colorize('P', color, on_color, style) + ']rint the policy',
@@ -122,7 +123,7 @@ class Filter:
                     'Q': '[' + colorize('Q', color, on_color, style) + ']uit',
                 }
                 for accepted_choice_text in accepted_choices.values():
-                    print(accepted_choice_text)
+                    print(f'- {accepted_choice_text}')
                 choice = input('Your choice: ').upper().strip()
                 if choice not in accepted_choices:
                     print(f'Invalid choice [{choice}]')
@@ -145,10 +146,10 @@ class Filter:
                         self.search_pattern(pattern)
                 elif choice == 'C':
                     while 1:
-                        print('[' + colorize('C', color, on_color, style) + ']LG')
-                        print('[' + colorize('L', color, on_color, style) + ']YC')
-                        print('[' + colorize('P', color, on_color, style) + ']ER')
-                        print('[' + colorize('Q', color, on_color, style) + ']uit')
+                        print('- [' + colorize('C', color, on_color, style) + ']LG')
+                        print('- [' + colorize('L', color, on_color, style) + ']YC')
+                        print('- [' + colorize('P', color, on_color, style) + ']ER')
+                        print('- [' + colorize('Q', color, on_color, style) + ']uit')
                         profile: str = input('Votre choix : ').upper().strip()
                         accepted_profiles: dict[str, str] = {'C': 'clg', 'L': 'lyc', 'P': 'per', }
                         profiles: list[str]
@@ -166,11 +167,6 @@ class Filter:
         except KeyboardInterrupt:
             print(f'Press Enter to continue ', end='')
             input()
-#        except Exception as e:
-#            print(e)
-#            print(colorize(str(e), Fore.RED))
-#            print(f'Press Enter to continue ', end='')
-#           input()
 
 
 def main():
