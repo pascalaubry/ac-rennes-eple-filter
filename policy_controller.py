@@ -92,6 +92,8 @@ class WebResult:
         self.response_content: str | None = None
         self.response_headers: dict[str] | None = None
         self.final_url: str | None = None
+        self.matching_category: str | None = None
+        self.matching_domain: str | None = None
         if info_cache_file.exists():
             if time.time() - info_cache_file.lstat().st_mtime < 4 * 3600:
                 print('cached ', end='')
@@ -99,6 +101,8 @@ class WebResult:
                     data = json.load(f)
                     self.status = ResultStatus(data['status'])
                     self.final_url = data['final_url']
+                    self.matching_domain = data['matching_domain']
+                    self.matching_category = data['matching_category']
                     self.response_code = data['response_code']
                     self.response_headers = data['response_headers']
                 if content_cache_file.exists():
@@ -133,6 +137,8 @@ class WebResult:
                     'status': self.status,
                     'final_url': self.final_url,
                     'response_code': self.response_code,
+                    'matching_category': self.matching_category,
+                    'matching_domain': self.matching_domain,
                     'response_headers': self.response_headers,
                 }, f)
             if self.response_content:
@@ -204,13 +210,18 @@ class WebResult:
                 self.status = ResultStatus.ConnectError
                 return
             if re.match(r'.*<h1>page web bloquée</h1>.*', one_line_content.lower()):
-                blocked_category: str | None = None
-                blocked_url: str | None = None
+                # if matches := re.match(
+                #        r'.*<p><b>url:</b>(.+)</p>\s*<p><b>category:</b>(.+)</p>.*', one_line_content.lower()):
+                #    blocked_url = matches.group(1).strip()
+                #    blocked_category = matches.group(2).strip()
                 if matches := re.match(
-                        r'.*<p><b>url:</b>(.+)</p>\s*<p><b>category:</b>(.+)</p>.*', one_line_content.lower()):
-                    blocked_url = matches.group(1).strip()
-                    blocked_category = matches.group(2).strip()
-                print(colorize(f'URL {blocked_url} blocked for category {blocked_category} ', Fore.YELLOW), end='')
+                        r'.*<p><b>url:</b>([^<]+)<.*', one_line_content.lower()):
+                    self.matching_domain = matches.group(1).strip()
+                if matches := re.match(
+                        r'.*.*<p><b>category:</b>([^<]+)<.*.*', one_line_content.lower()):
+                    self.matching_category = matches.group(1).strip()
+                print(colorize(
+                    f'URL {self.matching_domain} blocked for category {self.matching_category} ', Fore.YELLOW), end='')
                 self.status = ResultStatus.Denied
                 return
             else:
@@ -219,9 +230,9 @@ class WebResult:
                 match: bool = False
                 if re.match(r'.*<h1>page web bloquée</h1>.*', line.lower()):
                     match = True
-                if re.match(r'.*<b>category:\s*</b>.*', line.lower()):
+                if re.match(r'.*<b>category:</b>.*', line.lower()):
                     match = True
-                if re.match(r'.*<b>url:\s*</b>.*', line.lower()):
+                if re.match(r'.*<b>url:</b>.*', line.lower()):
                     match = True
                 print(colorize(line[:256], Fore.BLUE if match else Fore.YELLOW))
             self.status = ResultStatus.Denied
