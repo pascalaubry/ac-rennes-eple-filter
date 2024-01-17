@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 from yaml.loader import SafeLoader
 
-from common import colorize, exit_program, VERSION
+from common import colorize, exit_program, VERSION, get_reports_dir
 from database import Database
 from colorama import Fore
 
@@ -285,7 +285,7 @@ class Policy:
             else:
                 print(colorize(f'All the categories found in the database are used in rules.', Fore.GREEN))
         date: str = datetime.now().strftime("%Y%m%d")
-        html_file: Path = Path(f'ac_rennes_eple_filter-{VERSION}-policy-{date}.html')
+        html_file: Path = (get_reports_dir() / f'ac_rennes_eple_filter-{VERSION}-policy-{date}.html')
         HTMLRenderer().render(
             'policy.html',
             {
