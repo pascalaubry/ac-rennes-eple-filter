@@ -162,7 +162,6 @@ cython_debug/
 /export/
 /.idea/
 /ac_rennes_eple_filter.db
-/download/
-/*-optimized.txt
-/ac_rennes_eple_filter-*.html
 /ac_rennes_eple_filter_expected_results.json
+/cache/
+/reports/
