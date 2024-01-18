@@ -96,7 +96,7 @@ class Category:
             domains: List[str] = []
             for line in f:
                 line = line.strip()
-                if line != '' and line[0] != '#':
+                if line != '' and line[0] != '#' and line.find('*') == -1:
                     domains.append((line.strip()))
                     entries += 1
                 if entries > 0 and entries % bulk_size == 0:
