@@ -56,6 +56,8 @@ class Rule:
 
 class Policy:
 
+    policy_config_file: Path = Path('policy.yml')
+
     profiles: list[str] = ['clg', 'lyc', 'per', ]
 
     def __init__(self, database: Database):
@@ -78,9 +80,8 @@ class Policy:
     def __load(self):
         self.active_rules = []
         self.inactive_rules = []
-        policy_config_file: Path = Path('policy.yml')
         policy_config: dict[str, list[dict[str, str | dict[str, str]]]]
-        with open(policy_config_file, 'rt', encoding='utf8') as file:
+        with open(self.policy_config_file, 'rt', encoding='utf8') as file:
             policy_config = yaml.load(file.read().encode('utf-8'), Loader=SafeLoader)
         category_domain_counts: dict[str, int] = {}
         self.__database.execute('SELECT category, COUNT(*) FROM data GROUP BY category')
@@ -90,10 +91,10 @@ class Policy:
             category_domain_counts[category] = count
         for rule_config in policy_config['rules']:
             if 'category' not in rule_config:
-                exit_program(colorize(f'Category not set for a rule in {policy_config_file}', Fore.RED))
+                exit_program(colorize(f'Category not set for a rule in {self.policy_config_file}', Fore.RED))
             category = rule_config['category']
             if 'description' not in rule_config:
-                exit_program(colorize(f'Description not set for category {category} in {policy_config_file}', Fore.RED))
+                exit_program(colorize(f'Description not set for category {category} in {self.policy_config_file}', Fore.RED))
             auth: dict[str, bool | None] = {}
             for public in Policy.profiles:
                 auth[public] = None
@@ -106,7 +107,7 @@ class Policy:
                     elif auth_config['all'].lower() == 'deny':
                         all = False
                     else:
-                        exit_program(colorize(f"Invalid value for rules.x.auth.all in {policy_config_file}: "
+                        exit_program(colorize(f"Invalid value for rules.x.auth.all in {self.policy_config_file}: "
                                      f"{auth_config['all']}", Fore.RED))
                 if all is not None:
                     for public in Policy.profiles:
@@ -120,7 +121,7 @@ class Policy:
                                 auth[public] = False
                             else:
                                 exit_program(colorize(f"Invalid value for rules.x.auth.{public} "
-                                             f"in {policy_config_file}: {auth_config[public]}", Fore.RED))
+                                             f"in {self.policy_config_file}: {auth_config[public]}", Fore.RED))
             count: int = category_domain_counts[category] if category in category_domain_counts else 0
             rule: Rule = Rule(category, rule_config['description'], auth, count)
             if rule.active:

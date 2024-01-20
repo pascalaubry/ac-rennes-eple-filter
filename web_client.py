@@ -1,5 +1,6 @@
 import hashlib
 import re
+from pathlib import Path
 from urllib.parse import urlparse
 
 import yaml
@@ -20,16 +21,17 @@ disable_warnings(InsecureRequestWarning)
 @singleton
 class ProxyConfig:
 
+    proxy_config_file: Path = Path('proxy.yml')
+
     def __init__(self):
         print('Reading proxy config... ', end='')
-        proxy_config_file = 'proxy.yml'
         proxy_config: dict[str, str | dict[str, str] | None]
-        with open(proxy_config_file, 'rt', encoding='utf8') as file:
+        with open(self.proxy_config_file, 'rt', encoding='utf8') as file:
             proxy_config = yaml.load(file.read().encode('utf-8'), Loader=SafeLoader)
         try:
             self.type: str = proxy_config['type']
         except KeyError:
-            exit_program(f'Proxy type not set in {proxy_config_file}')
+            exit_program(f'Proxy type not set in {self.proxy_config_file}')
         self.pac_url: str | None = None
         self.http_proxy: str | None = None
         self.https_proxy: str | None = None
@@ -40,24 +42,24 @@ class ProxyConfig:
                 try:
                     self.pac_url = proxy_config['pac_url']
                 except KeyError:
-                    exit_program(f'Proxy pac_url not set in {proxy_config_file}')
+                    exit_program(f'Proxy pac_url not set in {self.proxy_config_file}')
             case 'system':
                 pass
             case 'manual':
                 try:
                     proxy_config['proxies']
                 except KeyError:
-                    exit_program(colorize(f"Manual proxies are not set in {proxy_config_file}", Fore.RED))
+                    exit_program(colorize(f"Manual proxies are not set in {self.proxy_config_file}", Fore.RED))
                 try:
                     self.https_proxy = proxy_config['proxies']['https']
                 except KeyError:
-                    exit_program(colorize(f"Manual HTTPS proxy is not set in {proxy_config_file}", Fore.RED))
+                    exit_program(colorize(f"Manual HTTPS proxy is not set in {self.proxy_config_file}", Fore.RED))
                 try:
                     self.http_proxy = proxy_config['proxies']['http']
                 except KeyError:
-                    exit_program(colorize(f"Manual HTTP proxy is not set in {proxy_config_file}", Fore.RED))
+                    exit_program(colorize(f"Manual HTTP proxy is not set in {self.proxy_config_file}", Fore.RED))
             case _:
-                exit_program(colorize(f"Invalid proxy type [{self.type}] in {proxy_config_file}", Fore.RED))
+                exit_program(colorize(f"Invalid proxy type [{self.type}] in {self.proxy_config_file}", Fore.RED))
         print(colorize('OK', Fore.GREEN))
 
     def unique_key(self) -> str:

@@ -6,7 +6,6 @@ from common import colorize, VERSION, COPYRIGHT, get_download_cache_dir, get_rep
 import colorama
 from colorama import Fore, Style
 import argparse
-from urllib.parse import urlparse, ParseResult
 
 from policy_controller import PolicyController
 from database import Database
