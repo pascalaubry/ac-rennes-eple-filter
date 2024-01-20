@@ -17,6 +17,38 @@
 
 {% block content %}
     <h1>Politique de filtrage académique</h1>
+   {% if policy.domains_number %}
+        {% if policy.not_found_in_database_categories %}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                Catégories utilisées dans les règles non trouvées dans la base de données : {{ ', '|join_strings:policy.not_found_in_database_categories }}.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+            </div>
+        {% endif %}
+        {% if policy.not_used_in_rules_categories %}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                Catégories de la base de données non utilisées dans les règles : {{ ', '|join_strings:policy.not_used_in_rules_categories }}.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            Aucune catégorie trouvée dans la base de données.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+        </div>
+    {% endif %}
+    <h2>Base de données</h2>
+    <table class="table table-database">
+        <tbody>
+            <tr>
+                <td>Catégories</td>
+                <td class="categories">{{ policy.categories_number }}</td>
+            </tr>
+            <tr>
+                <td>Domaines</td>
+                <td class="domains">{{ policy.domains_number }}</td>
+            </tr>
+        </tbody>
+    </table>
     <h2>Règles</h2>
     <table class="table table-hover table-sm table-rules">
         <thead class="table-dark sticky-top">
@@ -47,19 +79,6 @@
                 <td><i class="bi bi-check-square-fill" style="color: green"></i></td>
                 <td><i class="bi bi-check-square-fill" style="color: green"></i></td>
                 <td><em>Tous les sites qui ne sont pas explicitement interdits sont autorisés.</em></td>
-            </tr>
-        </tbody>
-    </table>
-    <h2>Base de données</h2>
-    <table class="table table-database">
-        <tbody>
-            <tr>
-                <td>Catégories</td>
-                <td class="categories">{{ policy.categories_number }}</td>
-            </tr>
-            <tr>
-                <td>Domaines</td>
-                <td class="domains">{{ policy.domains_number }}</td>
             </tr>
         </tbody>
     </table>

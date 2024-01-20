@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Filter {{ version }} - Recherche dans la base de données du motif {{ searcher.pattern }}
+{% endblock title %}
+
+{% block head %}
+    <style>
+        .pattern {
+            color: blue;
+            font-weight: bold;
+        }
+        .accordion {
+            width: max-content;
+            max-width: 100%;
+        }
+        .accordion-button {
+            font-weight: bold;
+        }
+    </style>
+{% endblock head %}
+
+{% block content %}
+    <h1>Recherche dans la base de données du motif <span class="pattern">{{ searcher.pattern }}</span></h1>
+    <p>Nombre de domaines correspondant au motif <span class="pattern">{{ searcher.pattern }}</span> : {{ searcher.domain_count }}</p>
+    <div class="accordion" id="searchAccordion">
+        {% for category in searcher.matching_categories %}
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ category }}" aria-expanded="true" aria-controls="collapse-{{ category }}">
+                        Catégorie {{ category }} ({{ searcher.domain_counts_by_category|get_item:category }})
+                    </button>
+                </h2>
+                <div id="collapse-{{ category }}" class="accordion-collapse collapse" data-bs-parent="#searchAccordion">
+                    <div class="accordion-body">
+                        {% autoescape off %}{{ searcher.domains_by_category_html|get_item:category }}{% endautoescape %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock content %}

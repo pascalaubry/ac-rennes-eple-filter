@@ -1,18 +1,19 @@
-from common import colorize
+from datetime import datetime
+from pathlib import Path
+
+from common import colorize, get_reports_dir, VERSION
 from database import Database
+from html_renderer import HTMLRenderer
 from policy import Policy, Rule, PolicyResult
 from colorama import Fore
+from urllib.parse import urlparse
 
 
 class FilterRuleEval(Rule):
 
     def __init__(self, rule: Rule, matching_domain: str | None = None):
         super().__init__(rule.category, rule.description, rule.auth, rule.domains_number)
-        self.__matching_domain: str | None = matching_domain
-
-    @property
-    def matching_domain(self) -> str | None:
-        return self.__matching_domain
+        self.matching_domain = matching_domain
 
 
 class DomainChecker:
@@ -21,24 +22,26 @@ class DomainChecker:
                  verbose: bool = True):
         self.__policy = policy
         self.__database = database
-        self.__domain = domain
-        self.__rule_evals: list[FilterRuleEval] = []
-        self.__results: dict[str, PolicyResult] = {}
-        self.__sub_domains: list[str] = []
-        parts: list[str] = domain.split('.')
+        self.domain = domain
+        if self.domain.startswith('http'):
+            self.domain = urlparse(self.domain).netloc
+        self.rule_evals: list[FilterRuleEval] = []
+        self.results: dict[str, PolicyResult] = {}
+        self.sub_domains: list[str] = []
+        parts: list[str] = self.domain.split('.')
         while len(parts) > 0:
-            self.__sub_domains.append('.'.join(parts))
+            self.sub_domains.append('.'.join(parts))
             parts.pop(0)
         # search the domains in the database
         if verbose:
-            print(f'Checking domain {self.__sub_domains[0]}...')
-            highlighted_domains = [colorize(domain, Fore.YELLOW) for domain in self.__sub_domains]
+            print(f'Checking domain {self.sub_domains[0]}...')
+            highlighted_domains = [colorize(domain, Fore.YELLOW) for domain in self.sub_domains]
             print(f"Domains searched: {', '.join(highlighted_domains)}")
-        query = f"SELECT domain, category FROM data WHERE domain IN ({', '.join(['?'] * len(self.__sub_domains))})"
-        self.__database.execute(query, tuple(self.__sub_domains))
+        query = f"SELECT domain, category FROM data WHERE domain IN ({', '.join(['?'] * len(self.sub_domains))})"
+        self.__database.execute(query, tuple(self.sub_domains))
         results = self.__database.fetchall()
         # evaluate the rules
-        for rule in self.__policy.active_rules + self.__policy.inactive_rules:
+        for rule in self.__policy.rules:
             rule_eval: FilterRuleEval | None = None
             for result in results:
                 domain = result[0]
@@ -50,41 +53,30 @@ class DomainChecker:
                     break
             if rule_eval is None:
                 rule_eval = FilterRuleEval(rule)
-            self.__rule_evals.append(rule_eval)
+            self.rule_evals.append(rule_eval)
         # set the authorizations for every public
         for public in Policy.profiles:
-            for rule_eval in self.__rule_evals:
+            for rule_eval in self.rule_evals:
                 if rule_eval.matches and rule_eval.auth[public] is not None:
-                    self.__results[public] = PolicyResult(
+                    self.results[public] = PolicyResult(
                         rule_eval.auth[public], rule_eval.matching_domain, rule_eval.category)
                     break
-            if public not in self.__results:
-                self.__results[public] = PolicyResult(True)
+            if public not in self.results:
+                self.results[public] = PolicyResult(True)
+
+    @property
+    def sub_domains_str(self) -> str:
+        return ', '.join(self.sub_domains)
 
     def print(self):
-        print(f'Domain:           {self.__sub_domains[0]}')
-        highlighted_domains = [colorize(domain, Fore.YELLOW) for domain in self.__sub_domains]
-        print(f"Domains searched: {', '.join(highlighted_domains)}")
-        for active in [True, False, ]:
-            print('ACTIVE RULES:' if active else 'INACTIVE RULES:')
-            self.__policy.print_rules_header()
-            for rule_eval in self.__rule_evals:
-                if rule_eval.active == active:
-                    rule_eval.print(
-                        self.__results, self.__policy.description_width, self.__policy.category_width)
-        for public in Policy.profiles:
-            if self.__results[public].allowed:
-                result = 'allowed'
-                result_color = Fore.GREEN
-            else:
-                result = 'denied'
-                result_color = Fore.RED
-            if self.__results[public].matching_category is None:
-                reason = 'by default'
-            else:
-                reason = (f'domain {colorize(self.__results[public].matching_domain, result_color)} '
-                          f'in category {colorize(self.__results[public].matching_category, result_color)}')
-            print(f'Access for {public.upper()}: {colorize(result, result_color)} ({reason})')
+        date: str = datetime.now().strftime("%Y%m%d")
+        html_file: Path = (get_reports_dir() / f'check-{VERSION}-{self.domain}-{date}.html')
+        HTMLRenderer().render(
+            'check.html',
+            {
+                'checker': self,
+            },
+            html_file)
 
     def result(self, public: str) -> PolicyResult:
-        return self.__results[public]
+        return self.results[public]

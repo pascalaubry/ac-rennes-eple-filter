@@ -1,4 +1,6 @@
 import json
+from contextlib import suppress
+
 import math
 import random
 import re
@@ -13,7 +15,6 @@ import socket
 
 import whois
 from colorama import Fore
-from django.template.defaulttags import register
 from dns.exception import DNSException
 from requests import Response
 from requests.exceptions import SSLError, ProxyError, ConnectionError
@@ -25,11 +26,6 @@ from database import Database
 from html_renderer import HTMLRenderer
 from policy import Policy
 from web_client import WebClient, ProxyConfig
-
-
-@register.filter
-def get_item(dictionary, key):
-    return dictionary.get(key)
 
 
 class ResultStatus(IntEnum):
@@ -77,14 +73,13 @@ class ResultStatus(IntEnum):
 
 
 class WebResult:
-    def __init__(self, domain: str, url: str, web: WebClient):
+    def __init__(self, domain: str, url: str, web: WebClient, profile: str):
         self.status: ResultStatus | None = None
         self.domain = domain
         parsed_url: ParseResult = urlparse(url)
         self.url_protocol = parsed_url.scheme
         self.url_domain = parsed_url.netloc
-        self.cached = False
-        cache_dir: Path = Path('.') / 'cache' / 'control'
+        cache_dir: Path = Path('.') / 'cache' / 'control' / profile / ProxyConfig().unique_key()
         cache_dir.mkdir(parents=True, exist_ok=True)
         info_cache_file = cache_dir / f'{self.url_protocol}_{self.url_domain}.info'
         content_cache_file = cache_dir / f'{self.url_protocol}_{self.url_domain}.html'
@@ -94,12 +89,14 @@ class WebResult:
         self.final_url: str | None = None
         self.matching_category: str | None = None
         self.matching_domain: str | None = None
+        self.cached = False
         if info_cache_file.exists():
             if time.time() - info_cache_file.lstat().st_mtime < 4 * 3600:
                 print('cached ', end='')
                 with open(info_cache_file, 'r') as f:
                     data = json.load(f)
-                    self.status = ResultStatus(data['status'])
+                    with suppress(KeyError):
+                        self.status = ResultStatus(data['status'])
                     self.final_url = data['final_url']
                     self.matching_domain = data['matching_domain']
                     self.matching_category = data['matching_category']
@@ -130,20 +127,21 @@ class WebResult:
                 self.status = ResultStatus.DnsError
             except ConnectionError:
                 self.status = ResultStatus.ConnectError
-            if self.status is None:
-                self.__analyse_response()
-            with open(info_cache_file, 'w') as f:
-                json.dump({
-                    'status': self.status,
-                    'final_url': self.final_url,
-                    'response_code': self.response_code,
-                    'matching_category': self.matching_category,
-                    'matching_domain': self.matching_domain,
-                    'response_headers': self.response_headers,
-                }, f)
-            if self.response_content:
-                with open(content_cache_file, 'wb') as f:
-                    f.write(self.response_content.encode('utf-8'))
+        if self.status is None:
+            self.__analyse_response()
+        with open(info_cache_file, 'w') as f:
+            data = {}
+            if self.error:
+                data['status'] = self.status
+            data['final_url'] = self.final_url
+            data['response_code'] = self.response_code
+            data['matching_category'] = self.matching_category
+            data['matching_domain'] = self.matching_domain
+            data['response_headers'] = self.response_headers
+            json.dump(data, f)
+        if self.response_content:
+            with open(content_cache_file, 'wb') as f:
+                f.write(self.response_content.encode('utf-8'))
         self.compliant: bool | None = None
 
     def __decode_response(self, response: Response):
@@ -198,7 +196,7 @@ class WebResult:
             print(colorize(f'Blocked by antivirus ', Fore.YELLOW), end='')
             self.status = ResultStatus.Denied
             return
-        response_lines: list[str] = self.response_content.splitlines()
+        response_lines: list[str] = self.response_content.splitlines() if self.response_content else []
         one_line_content: str = ' '.join(response_lines)
         if self.response_code == 503:
             if re.match(r'.*<!-- ERR_DNS_FAIL -->.*', one_line_content):
@@ -225,7 +223,7 @@ class WebResult:
                 self.status = ResultStatus.Denied
                 return
             else:
-                print(colorize(f'[<h1>page web bloquée</h1> not found] one_line_content={one_line_content}', Fore.BLUE))
+                print(colorize(f'[<h1>page web bloquée</h1> not found] ', Fore.BLUE))
             for line in response_lines:
                 match: bool = False
                 if re.match(r'.*<h1>page web bloquée</h1>.*', line.lower()):
@@ -321,7 +319,8 @@ class WebResult:
         if not self.final_url:
             return None
         url: ParseResult = urlparse(self.final_url)
-        return f'{url.scheme}://{url.netloc}{f":{url.port}" if url.port else ""}{url.path if url.path else "/"}{"?..." if url.query else ""}'
+        return (f'{url.scheme}://{url.netloc}{f":{url.port}" if url.port else ""}{url.path if url.path else "/"}'
+                f'{"?..." if url.query else ""}')
 
     def set_compliant(self, compliant: bool):
         self.compliant = compliant
@@ -341,26 +340,21 @@ class WebResult:
 
 class PolicyController:
 
-    def __init__(
-            self, policy: Policy, database: Database, web: WebClient,
-            profile: str, verbose: bool = True):
+    def __init__(self, policy: Policy, database: Database, web: WebClient, profile: str):
         self.policy: Policy = policy
         self.database: Database = database
         self.profile: str = profile
         self.hostname: str = socket.gethostname()
-        if verbose:
-            print(f'Hostname:   {self.hostname}')
+        print(f'Hostname:   {self.hostname}')
         self.private_ip: str = socket.gethostbyname(self.hostname)
-        if verbose:
-            print(f'Private IP: {self.private_ip}')
-        if verbose:
-            print('Retrieving public IP... ', end='')
+        print(f'Private IP: {self.private_ip}')
+        print('Retrieving public IP... ', end='')
         self.public_ip: str | None = None
         self.public_hostname: str | None = None
         ip_url: str = 'https://api.ipify.org'
         try:
             self.public_ip = web.get(
-                ip_url, follow_redirect=True, code_200_needed=True, verbose=verbose, verify=False
+                ip_url, follow_redirect=True, code_200_needed=True, verify=False
             )[0].content.decode('utf8')
             self.public_hostname = socket.gethostbyaddr(self.public_ip)[0]
         except ConnectionError:
@@ -370,11 +364,10 @@ class PolicyController:
             pass
         except AttributeError:
             pass
-        if verbose:
-            if self.public_hostname is None or self.public_ip == self.public_hostname:
-                print(f'\nPublic IP:  {self.public_ip}')
-            else:
-                print(f'\nPublic IP:  {self.public_ip} ({self.public_hostname})')
+        if self.public_hostname is None or self.public_ip == self.public_hostname:
+            print(f'\nPublic IP:  {self.public_ip}')
+        else:
+            print(f'\nPublic IP:  {self.public_ip} ({self.public_hostname})')
         self.policy_expected_results_file: Path = Path('ac_rennes_eple_filter_expected_results.json')
         self.policy_expected_results: dict[str, PolicyResult] = {}
         self.web_results: dict[str, WebResult] = {}
@@ -382,36 +375,30 @@ class PolicyController:
         self.compliant_urls: list[str] = []
         self.too_strict_urls: list[str] = []
         self.too_permissive_urls: list[str] = []
-        if self.__read_policy_expected_results(verbose):
-            self.__test_urls(web, verbose)
+        if self.__read_policy_expected_results():
+            self.__test_urls(web, profile)
 
-    def __read_policy_expected_results(self, verbose: bool) -> bool:
-        if verbose:
-            print(f'Looking for {self.policy_expected_results_file}... ', end='')
+    def __read_policy_expected_results(self) -> bool:
+        print(f'Looking for {self.policy_expected_results_file}... ', end='')
         if not self.policy_expected_results_file.is_file():
-            if verbose:
-                print(colorize(f'file not found.', Fore.YELLOW))
-            self.__build_policy_expected_results_file(verbose)
+            print(colorize(f'file not found.', Fore.YELLOW))
+            self.__build_policy_expected_results_file()
         elif self.policy_expected_results_file.lstat().st_mtime > time.time() - 60 * 60 * 24:
-            if verbose:
-                print(colorize(f'up to date.', Fore.GREEN))
+            print(colorize(f'up to date.', Fore.GREEN))
         else:
-            if verbose:
-                print(colorize(f'obsolete.', Fore.GREEN))
-            self.__build_policy_expected_results_file(verbose)
+            print(colorize(f'obsolete.', Fore.GREEN))
+            self.__build_policy_expected_results_file()
         if not self.policy_expected_results_file.exists():
             print(colorize(f'File {self.policy_expected_results_file} not found, aborting.', Fore.RED))
             return False
-        if verbose:
-            print(f'Reading {self.policy_expected_results_file}... ', end='')
+        print(f'Reading {self.policy_expected_results_file}... ', end='')
         with open(self.policy_expected_results_file, 'r') as f:
             profile_results: dict[str, dict[str, bool | str]] = json.loads(f.read())[self.profile]
             for url in profile_results:
                 self.policy_expected_results[url] = PolicyResult(
                     profile_results[url]['allowed'], profile_results[url]['matching_domain'],
                     profile_results[url]['matching_category'])
-        if verbose:
-            print(colorize(f'{len(self.policy_expected_results)} domains read.', Fore.GREEN))
+        print(colorize(f'{len(self.policy_expected_results)} domains read.', Fore.GREEN))
         return True
 
     @staticmethod
@@ -444,7 +431,7 @@ class PolicyController:
             return False
         return True
 
-    def __get_test_domains(self, verbose: bool = True) -> list[str]:
+    def __get_test_domains(self) -> list[str]:
         """return [
             'toutatice.fr',
             'u-bordeaux.fr',
@@ -474,8 +461,7 @@ class PolicyController:
                 category_domains: int = 0
                 if categories[rule.category]['origin'] == 'rennes':
                     domain_per_category: int = 20
-                    if verbose:
-                        print(f'Adding last {domain_per_category} domains of category {rule.category}... ', end='')
+                    print(f'Adding last {domain_per_category} domains of category {rule.category}... ', end='')
                     self.database.execute(
                         'SELECT domain FROM data WHERE category = ? ORDER BY id DESC LIMIT ?',
                         (rule.category, domain_per_category * 3))
@@ -484,17 +470,14 @@ class PolicyController:
                         if self.__test_whois_dns(domain):
                             domains.append(domain := result[0])
                             category_domains += 1
-                            if verbose:
-                                print(f'{domain} ({category_domains}) ', end='')
+                            print(f'{domain} ({category_domains}) ', end='')
                             if category_domains == domain_per_category:
                                 break
                         else:
-                            if verbose:
-                                print(colorize(f'{domain} ', Fore.YELLOW), end='')
+                            print(colorize(f'{domain} ', Fore.YELLOW), end='')
                 else:
                     domain_per_category: int = 5
-                    if verbose:
-                        print(f'Picking last {domain_per_category} domains of category {rule.category}... ', end='')
+                    print(f'Picking last {domain_per_category} domains of category {rule.category}... ', end='')
                     self.database.execute(
                         'SELECT domain FROM data WHERE category = ? ORDER BY id DESC LIMIT 1',
                         (rule.category, ))
@@ -502,11 +485,9 @@ class PolicyController:
                     if self.__test_whois_dns(domain):
                         domains.append(domain)
                         category_domains += 1
-                        if verbose:
-                            print(f'{domain} ({category_domains}) ', end='')
+                        print(f'{domain} ({category_domains}) ', end='')
                     else:
-                        if verbose:
-                            print(colorize(f'{domain} ', Fore.YELLOW), end='')
+                        print(colorize(f'{domain} ', Fore.YELLOW), end='')
                     for i in range(3 * domain_per_category - 1):
                         self.database.execute(
                             'SELECT domain FROM data WHERE category = ? ORDER BY id DESC LIMIT ?, ?',
@@ -515,30 +496,24 @@ class PolicyController:
                         if self.__test_whois_dns(domain):
                             domains.append(domain)
                             category_domains += 1
-                            if verbose:
-                                print(f'{domain} ({category_domains}) ', end='')
+                            print(f'{domain} ({category_domains}) ', end='')
                             if category_domains == domain_per_category:
                                 break
                         else:
-                            if verbose:
-                                print(colorize(f'{domain} ', Fore.YELLOW), end='')
-                if verbose:
-                    print(f'')
+                            print(colorize(f'{domain} ', Fore.YELLOW), end='')
+                print(f'')
             else:
-                if verbose:
-                    print(f'Category {rule.category} not found in database.')
+                print(f'Category {rule.category} not found in database.')
         return domains
 
-    def __build_policy_expected_results_file(self, verbose: bool = True):
-        if verbose:
-            print(f'Building policy expected results...')
-        domains: list[str] = self.__get_test_domains(verbose)
+    def __build_policy_expected_results_file(self):
+        print(f'Building policy expected results...')
+        domains: list[str] = self.__get_test_domains()
         expected_results_dict: dict[str, dict[str, dict[str, bool | str]]] = {}
         for profile in Policy.profiles:
             expected_results_dict[profile] = {}
         for domain in domains:
-            if verbose:
-                print(f'Getting policy on domain {domain}... ', end='')
+            print(f'Getting policy on domain {domain}... ', end='')
             domain_checker: DomainChecker = DomainChecker(self.policy, self.database, domain, verbose=False)
             for profile in Policy.profiles:
                 result = domain_checker.result(profile)
@@ -547,19 +522,16 @@ class PolicyController:
                     'matching_domain': result.matching_domain,
                     'matching_category': result.matching_category,
                 }
-            if verbose:
-                print('/'.join([
-                    ('allowed' if expected_results_dict[profile][domain]['allowed'] else 'denied')
-                    for profile in Policy.profiles
-                ]))
-        if verbose:
-            print(f'Writing {self.policy_expected_results_file}... ', end='')
+            print('/'.join([
+                ('allowed' if expected_results_dict[profile][domain]['allowed'] else 'denied')
+                for profile in Policy.profiles
+            ]))
+        print(f'Writing {self.policy_expected_results_file}... ', end='')
         with open(self.policy_expected_results_file, 'w') as f:
             f.write(json.dumps(expected_results_dict))
-        if verbose:
-            print(colorize('OK', Fore.GREEN))
+        print(colorize('OK', Fore.GREEN))
 
-    def __test_urls(self, web: WebClient, verbose: bool):
+    def __test_urls(self, web: WebClient, profile: str):
         first_domain = ''
         items = len(self.policy_expected_results) * 2
         item = 0
@@ -579,18 +551,16 @@ class PolicyController:
                     estimated_time = math.ceil((items - item) * average_time)
                     eta = f'{estimated_time // 60:02}:{estimated_time % 60:02}'
                 url = f'{scheme}://{domain}/'
-                if verbose:
-                    print(f'[{item_percent:02}%] [ETA: {eta}] Testing {url} ', end='')
-                self.web_results[url] = WebResult(domain, url, web)
+                print(f'[{item_percent:02}%] [ETA: {eta}] Testing {url} ', end='')
+                self.web_results[url] = WebResult(domain, url, web, profile)
                 if self.web_results[url].error:
                     parse_result = urlparse(url)
                     if (not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', parse_result.netloc)
                             and not parse_result.netloc.startswith('www.')):
                         # TEST WWW.DOMAIN
                         www_url = url.replace('://', '://www.')
-                        if verbose:
-                            print(f'Trying {www_url} ', end='')
-                        self.web_results[url] = WebResult(domain, www_url, web)
+                        print(f'Trying {www_url} ', end='')
+                        self.web_results[url] = WebResult(domain, www_url, web, profile)
                 if self.web_results[url].cached:
                     items -= 1
                 else:
@@ -603,6 +573,7 @@ class PolicyController:
                         print(colorize(f'{self.web_results[url].status}', Fore.YELLOW), end='')
                         self.error_urls.append(url)
                     case ResultStatus.Allowed:
+                        print(f'{self.web_results[url].status} ', end='')
                         self.web_results[url].set_compliant(self.policy_expected_results[domain].allowed)
                         if self.web_results[url].compliant:
                             self.compliant_urls.append(url)
@@ -611,6 +582,7 @@ class PolicyController:
                             self.too_permissive_urls.append(url)
                             print(colorize('too permissive', Fore.RED), end='')
                     case ResultStatus.Denied:
+                        print(f'{self.web_results[url].status} ', end='')
                         self.web_results[url].set_compliant(not self.policy_expected_results[domain].allowed)
                         if self.web_results[url].compliant:
                             self.compliant_urls.append(url)
@@ -650,10 +622,10 @@ class PolicyController:
     def print(self):
         date: str = datetime.now().strftime("%Y%m%d")
         html_file: Path = (get_reports_dir()
-                           / f'ac_rennes_eple_filter-{VERSION}-{self.profile.upper()}'
+                           / f'control-{VERSION}-{self.profile.upper()}'
                              f'-{self.public_ip}-{date}-{ProxyConfig().type}.html')
         HTMLRenderer().render(
-            'report.html',
+            'control.html',
             {
                 'controller': self,
                 'proxy_config': ProxyConfig(),

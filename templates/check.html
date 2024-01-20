@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Filter {{ version }} - Test de l'URL {{ checker.domain }}
+{% endblock title %}
+
+{% block head %}
+    <style>
+        .table-results, .table-rules {
+            width: auto;
+        }
+        .table-results {
+            font-weight: bold;
+        }
+        .table-rules .domains {
+            text-align: right;
+        }
+        .matching .category, .matching .domains, .matching .description, .matching .match,
+        .default .category, .default .domains, .default .description, .default .match {
+            font-weight: bold;
+            color: blue;
+        }
+        .access-allowed, .access-denied {
+            color: gray;
+        }
+        .result.matching .access-allowed {
+            color: green;
+        }
+        .result.matching .access-denied {
+            color: red;
+        }
+        .default .category, .default .domains , .default .description , .default .match {
+            font-style: italic;
+        }
+    </style>
+{% endblock head %}
+
+{% block content %}
+    <h1>Application de la politique académique sur le domaine {{ checker.domain }}</h1>
+    <p>Sous-domaines recherchés : {{ checker.sub_domains_str }}</p>
+    <table class="table table-results">
+        <thead class="table-dark">
+            <tr>
+                <th>Public</th>
+                <th>Accès</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% with profile='clg' %}
+            {% with result=checker.results|get_item:profile %}
+                <tr class="{% if result.allowed %}table-success{% else %}table-danger{% endif %}">
+                    <td>Collégien·nes</td>
+                    <td>
+                        {% if result.allowed %}Autorisé{% else %}Interdit{% endif %}
+                        ({% if result.matching_domain %}domaine {{ checker.matching_domain }} dans la catégorie {{ result.matching_category }}{% else %}par défaut{% endif %})
+                    </td>
+                </tr>
+            {% endwith %}
+            {% endwith %}
+            {% with profile='lyc' %}
+            {% with result=checker.results|get_item:profile %}
+                <tr class="{% if result.allowed %}table-success{% else %}table-danger{% endif %}">
+                    <td>Lycéen·nes</td>
+                    <td>
+                        {% if result.allowed %}Autorisé{% else %}Interdit{% endif %}
+                        ({% if result.matching_domain %}domaine {{ checker.matching_domain }} dans la catégorie {{ result.matching_category }}{% else %}par défaut{% endif %})
+                    </td>
+                </tr>
+            {% endwith %}
+            {% endwith %}
+            {% with profile='per' %}
+            {% with result=checker.results|get_item:profile %}
+                <tr class="{% if result.allowed %}table-success{% else %}table-danger{% endif %}">
+                    <td>Personnels</td>
+                    <td>
+                        {% if result.allowed %}Autorisé{% else %}Interdit{% endif %}
+                        ({% if result.matching_domain %}domaine {{ checker.matching_domain }} dans la catégorie {{ result.matching_category }}{% else %}par défaut{% endif %})
+                    </td>
+                </tr>
+            {% endwith %}
+            {% endwith %}
+        </tbody>
+    </table>
+    <h2>Détails</h2>
+    <h3>Règles correspondant au domaine {{ checker.domain }}</h3>
+    {% with print_all_rules=False %}
+        {% include 'check_rules.html' %}
+    {% endwith %}
+    <h3>Toutes les règles</h3>
+    {% with print_all_rules=True %}
+        {% include 'check_rules.html' %}
+    {% endwith %}
+{% endblock content %}

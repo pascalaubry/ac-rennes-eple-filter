@@ -1,0 +1,61 @@
+        <table class="table table-hover table-sm table-rules">
+            <thead class="table-dark {% if print_all_rules %}sticky-top{% endif %}">
+                <tr>
+                    <th>Catégorie</th>
+                    <th>Domaines</th>
+                    <th>CLG</th>
+                    <th>LYC</th>
+                    <th>PER</th>
+                    <th>Description</th>
+                    <th>Correspondance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rule_eval in checker.rule_evals %}
+                    {% if print_all_rules or rule_eval.matching_domain %}
+                        <tr class="{% if rule_eval.matching_domain %}matching{% endif %}">
+                            <td class="category">{{ rule_eval.category }}</td>
+                            <td class="domains">{{ rule_eval.domains_number }}</td>
+                            {% with profile='clg' %}
+                            {% with result=checker.results|get_item:profile %}
+                                <td class="result {% if rule_eval.category == result.matching_category %}matching{% endif %}">{% autoescape off %}{{ rule_eval.html_auth|get_item:profile }}{% endautoescape %}</td>
+                            {% endwith %}
+                            {% endwith %}
+                            {% with profile='lyc' %}
+                            {% with result=checker.results|get_item:profile %}
+                                <td class="result {% if rule_eval.category == result.matching_category %}matching{% endif %}">{% autoescape off %}{{ rule_eval.html_auth|get_item:profile }}{% endautoescape %}</td>
+                            {% endwith %}
+                            {% endwith %}
+                            {% with profile='per' %}
+                            {% with result=checker.results|get_item:profile %}
+                                <td class="result {% if rule_eval.category == result.matching_category %}matching{% endif %}">{% autoescape off %}{{ rule_eval.html_auth|get_item:profile }}{% endautoescape %}</td>
+                            {% endwith %}
+                            {% endwith %}
+                            <td class="description">{{ rule_eval.description }}</td>
+                            <td class="match">{% if rule_eval.matching_domain %}{{ rule_eval.matching_domain }}{% endif %}</td>
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+                <tr class="default">
+                    <td class="category">Par défaut</td>
+                    <td class="domains"></td>
+                    {% with profile='clg' %}
+                    {% with result=checker.results|get_item:profile %}
+                        <td class="result {% if not result.matching_category %}matching{% endif %}"><i class="bi bi-check-square-fill access-allowed"></i></td>
+                    {% endwith %}
+                    {% endwith %}
+                    {% with profile='lyc' %}
+                    {% with result=checker.results|get_item:profile %}
+                        <td class="result {% if not result.matching_category %}matching{% endif %}"><i class="bi bi-check-square-fill access-allowed"></i></td>
+                    {% endwith %}
+                    {% endwith %}
+                    {% with profile='per' %}
+                    {% with result=checker.results|get_item:profile %}
+                        <td class="result {% if not result.matching_category %}matching{% endif %}"><i class="bi bi-check-square-fill access-allowed"></i></td>
+                    {% endwith %}
+                    {% endwith %}
+                    <td class="description">Tous les sites qui ne sont pas explicitement interdits sont autorisés.</td>
+                    <td class="match"></td>
+                </tr>
+            </tbody>
+        </table>

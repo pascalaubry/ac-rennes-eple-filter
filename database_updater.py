@@ -46,7 +46,7 @@ class Category:
                 response: requests.Response
                 final_url: str
                 try:
-                    response, final_url = self.__web.head(self.__url, verbose=False)[:2]
+                    response, final_url = self.__web.head(self.__url)[:2]
                 except ProxyError | SSLError | DNSException | ConnectionError:
                     print(colorize(f'no response', Fore.RED))
                     return False

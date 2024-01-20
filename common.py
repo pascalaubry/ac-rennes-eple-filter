@@ -3,10 +3,26 @@ from pathlib import Path
 import sys
 from colorama import Style
 
+from django.template.defaulttags import register
+
 
 VERSION: str = '1.7.0'
 COPYRIGHT: str = '2022-2024 Région académique Bretagne'
 PATH: Path = Path(__file__).parents[0].resolve()
+
+
+@register.filter
+def get_item(dictionary, key):
+    try:
+        return dictionary.get(key)
+    except AttributeError:
+        print(f'AttributeError in get_item(dictionary=[{dictionary}], key=[{key}])')
+        return None
+
+
+@register.filter
+def join_strings(separator, strings):
+    return separator.join(strings)
 
 
 def singleton(class_):

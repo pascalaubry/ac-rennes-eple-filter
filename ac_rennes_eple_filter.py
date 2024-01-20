@@ -2,10 +2,11 @@ import re
 from pathlib import Path
 
 from domain_checker import DomainChecker
-from common import colorize, exit_program, VERSION, COPYRIGHT, get_download_cache_dir, get_reports_dir
+from common import colorize, VERSION, COPYRIGHT, get_download_cache_dir, get_reports_dir
 import colorama
 from colorama import Fore, Style
 import argparse
+from urllib.parse import urlparse, ParseResult
 
 from policy_controller import PolicyController
 from database import Database
@@ -19,9 +20,22 @@ class Filter:
 
     expected_results_file: Path = Path('ac_rennes_eple_filter_expected_results.json')
 
-    def __init__(self, database: Database, policy: Policy):
+    def __init__(self, database: Database, policy: Policy, update_database_if_needed: bool = False):
         self.__database: Database = database
         self.__policy: Policy = policy
+        if update_database_if_needed:
+            update: bool = False
+            if not self.__database.exists:
+                print(colorize('Database not found, building...', Fore.YELLOW))
+                update = True
+            elif database.too_old:
+                update = True
+                print(colorize('Database is too old, updating...', Fore.RED))
+            elif self.__policy.empty_database:
+                print(colorize('Database is empty, updating...', Fore.RED))
+                update = True
+            if update:
+                self.update_database()
 
     def update_database(self):
         web: WebClient = WebClient()
@@ -31,15 +45,15 @@ class Filter:
     def print_policy(self):
         self.__policy.print()
 
-    def test_url(self, domain: str):
-        DomainChecker(policy=self.__policy, database=self.__database, domain=domain).print()
+    def check_domain(self, url: str):
+        DomainChecker(policy=self.__policy, database=self.__database, domain=url).print()
 
     def search_pattern(self, pattern: str):
         PatternSearcher(policy=self.__policy, database=self.__database, pattern=pattern).print()
 
     def control_policy(self, profile: str):
         web: WebClient = WebClient()
-        PolicyController(self.__policy, self.__database, web, profile, verbose=True).print()
+        PolicyController(self.__policy, self.__database, web, profile).print()
 
     def optimize_local_rules(self):
         for category in RennesOrigin.category_names:
@@ -67,9 +81,10 @@ class Filter:
                     if auth is not None:
                         result = checker.result(public)
                         if result.allowed == auth:
-                            useless_texts[public] = (
-                                f"Access already {'allowed' if auth else 'denied'} "
-                                f"({f'domain {result.matching_domain} matches category {result.matching_category}' if result.matching_category else 'by default'})")
+                            reason: str = \
+                                f'domain {result.matching_domain} matches category {result.matching_category}' \
+                                if result.matching_category else 'by default'
+                            useless_texts[public] = f'Access already {"allowed" if auth else "denied"} ({reason})'
                         else:
                             useful = True
                             break
@@ -112,31 +127,40 @@ class Filter:
                 color = Fore.LIGHTWHITE_EX
                 on_color = None
                 style = Style.BRIGHT
-                print(f'What do you want to do?')
-                accepted_choices: dict[str, str] = {
-                    'U': '[' + colorize('U', color, on_color, style) + ']pdate the database',
-                    'P': '[' + colorize('P', color, on_color, style) + ']rint the policy',
-                    'T': '[' + colorize('T', color, on_color, style) + ']est URLS',
-                    'S': '[' + colorize('S', color, on_color, style) + ']earch a pattern in the database',
-                    'C': '[' + colorize('C', color, on_color, style) + ']ontrol the policy',
-                    'O': '[' + colorize('O', color, on_color, style) + ']ptimize local rules',
-                    'Q': '[' + colorize('Q', color, on_color, style) + ']uit',
+                choices: dict[str, str] = {
+                    'U': f'[{colorize("U", color, on_color, style)}]pdate the database',
+                    'P': f'[{colorize("P", color, on_color, style)}]rint the policy',
                 }
-                for accepted_choice_text in accepted_choices.values():
+                allow_more_actions: bool = True
+                if not self.__database.exists:
+                    allow_more_actions = False
+                elif self.__database.too_old:
+                    print(colorize('Database is too old, please update', Fore.RED))
+                    allow_more_actions = False
+                elif self.__policy.empty_database:
+                    allow_more_actions = False
+                if allow_more_actions:
+                    choices['T'] = f'[{colorize("T", color, on_color, style)}]est URLs or domains'
+                    choices['S'] = f'[{colorize("S", color, on_color, style)}]earch a pattern in the database'
+                    choices['C'] = f'[{colorize("C", color, on_color, style)}]ontrol the policy'
+                    choices['O'] = f'[{colorize("O", color, on_color, style)}]ptimize local rules'
+                choices['Q'] = f'[{colorize("Q", color, on_color, style)}]uit'
+                print(f'What do you want to do?')
+                for accepted_choice_text in choices.values():
                     print(f'- {accepted_choice_text}')
                 choice = input('Your choice: ').upper().strip()
-                if choice not in accepted_choices:
-                    print(f'Invalid choice [{choice}]')
+                if choice not in choices:
+                    print(colorize(f'Invalid choice [{choice}]', Fore.RED))
                 elif choice == 'U':
                     self.update_database()
                 elif choice == 'P':
                     self.print_policy()
                 elif choice == 'T':
                     while 1:
-                        url = input('Enter the URL to test (Enter to cancel): ').lower().strip()
+                        url = input('Enter the URL or domain to test (Enter to cancel): ').lower().strip()
                         if url == '':
                             break
-                        self.test_url(url)
+                        self.check_domain(url)
                 elif choice == 'S':
                     while 1:
                         pattern = input(
@@ -170,38 +194,37 @@ class Filter:
 
 
 def main():
-    try:
-        colorama.init()
-        print(f'ac-rennes-eple-filter {VERSION} Copyright (c) {COPYRIGHT}')
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--update', help='update the database', action='store_true')
-        parser.add_argument('--print', help='print the policy rules', action='store_true')
-        parser.add_argument('--test', help='test a URL', dest='test_url', type=str)
-        parser.add_argument('--search', help='search for a pattern', dest='pattern', type=str)
-        parser.add_argument('--control', help='control the policy', dest='profile', type=str)
-        parser.add_argument('--optimize', help='optimize local rules', action='store_true')
-        args = parser.parse_args()
-        ProxyConfig()
-        database: Database = Database()
-        policy: Policy = Policy(database)
-        f: Filter = Filter(database, policy)
-        if args.update:
-            f.update_database()
-        elif args.print:
-            f.print_policy()
-        elif args.test_url:
-            for url in args.test_url.split(','):
-                f.test_url(url)
-        elif args.pattern:
-            f.search_pattern(args.pattern)
-        elif args.profile:
-            f.control_policy(args.profile)
-        elif args.optimize:
-            f.optimize_local_rules()
-        else:
-            f.interactive()
-    except ConnectionError as e:
-        exit_program('An error occurred: {}'.format(e))
+    colorama.init()
+    print(f'ac-rennes-eple-filter {VERSION} Copyright (c) {COPYRIGHT}')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--update', help='update the database', action='store_true')
+    parser.add_argument('--policy', help='print the policy rules', action='store_true')
+    parser.add_argument('--test', help='test a URLs or domains', dest='urls', type=str)
+    parser.add_argument('--search', help='search for a pattern', dest='pattern', type=str)
+    parser.add_argument('--control', help='control the policy', dest='profile', type=str)
+    parser.add_argument('--optimize', help='optimize local rules', action='store_true')
+    args = parser.parse_args()
+    ProxyConfig()  # create an instance to detect errors ASAP
+    database: Database = Database()
+    policy: Policy = Policy(database)
+    if args.update:
+        Filter(database, policy).update_database()
+    elif args.policy:
+        Filter(database, policy).print_policy()
+    elif args.urls:
+        filt: Filter = Filter(database, policy, update_database_if_needed=True)
+        for url in args.urls.split(','):
+            url = url.strip()
+            if url:
+                filt.check_domain(url)
+    elif args.pattern:
+        Filter(database, policy, update_database_if_needed=True).search_pattern(args.pattern)
+    elif args.profile:
+        Filter(database, policy, update_database_if_needed=True).control_policy(args.profile)
+    elif args.optimize:
+        Filter(database, policy, update_database_if_needed=True).optimize_local_rules()
+    else:
+        Filter(database, policy, update_database_if_needed=True).interactive()
 
 
 if __name__ == '__main__':

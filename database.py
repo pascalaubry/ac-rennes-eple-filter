@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from sqlite3 import Error
 import sqlite3
@@ -11,30 +12,34 @@ class Database:
 
     def __init__(self):
         print('Initializing database... ', end='')
-        self.__test: bool | None = None
-        self.__config: dict[str, str | int] = {
-            'file': 'ac_rennes_eple_filter.db',
-        }
+        self.file: Path = Path('ac_rennes_eple_filter.db')
         config_file: str = 'database.yml'
         with open(config_file, 'rt', encoding='utf8') as file:
-            file_config: dict[str, str | int] = yaml.load(file.read().encode('utf-8'), Loader=SafeLoader)
-        self.__url: str
-        if file_config is not None:
-            if 'file' in file_config:
-                self.__config['file'] = file_config['file']
-        self.__url = f"sqlite://{self.__config['file']}"
+            database_config: dict[str, str | int] = yaml.load(file.read().encode('utf-8'), Loader=SafeLoader)
+        if database_config is not None:
+            if 'file' in database_config:
+                self.file = Path(database_config['file'])
+        self.__url: str = f"sqlite://{self.file}"
         self.__db = None
         self.__cursor = None
         print(colorize('OK', Fore.GREEN))
         self.__open()
 
+    @property
+    def exists(self) -> bool:
+        return self.file.is_file()
+
+    @property
+    def too_old(self) -> bool:
+        return time.time() - self.file.lstat().st_mtime > 2 * 24 * 3600
+
     def __open(self):
         if self.__cursor is None:
             print(f"Opening database connection {self.__url}... ", end='')
-            if not Path(self.__config['file']).exists():
-                print(colorize(f"{self.__config['file']} not found, file will be created ", Fore.YELLOW), end='')
+            if not self.exists:
+                print(colorize(f"{self.file} not found, file will be created ", Fore.YELLOW))
             try:
-                self.__db = sqlite3.connect(self.__config['file'])
+                self.__db = sqlite3.connect(self.file)
                 self.__cursor = self.__db.cursor()
             except Error as e:
                 exit_program(colorize(f'Could not connect to {self.__url} ({e}), exiting.', Fore.RED))
@@ -63,7 +68,7 @@ class Database:
         self.__open()
         self.__cursor.execute(query, params)
 
-    def executemany(self, query: str, params: tuple = ()):
+    def executemany(self, query: str, params: list[tuple]):
         self.__open()
         self.__cursor.executemany(query, params)
 

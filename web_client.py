@@ -1,3 +1,4 @@
+import hashlib
 import re
 from urllib.parse import urlparse
 
@@ -59,6 +60,17 @@ class ProxyConfig:
                 exit_program(colorize(f"Invalid proxy type [{self.type}] in {proxy_config_file}", Fore.RED))
         print(colorize('OK', Fore.GREEN))
 
+    def unique_key(self) -> str:
+        match self.type:
+            case 'direct' | 'system':
+                return self.type
+            case 'pac':
+                return f'{self.type}-{hashlib.md5(self.pac_url).hexdigest()}'
+            case 'manual':
+                return f'{self.type}-{hashlib.md5(f"{self.https_proxy} {self.http_proxy}").hexdigest()}'
+            case _:
+                raise ValueError
+
     def __str__(self):
         match self.type:
             case 'direct':
@@ -96,8 +108,7 @@ class WebClient:
         return self.__session
 
     def __request(
-            self, url: str, method: str, follow_redirect: bool,
-            code_200_needed: bool, verify: bool, verbose: bool
+            self, url: str, method: str, follow_redirect: bool, code_200_needed: bool, verify: bool
     ) -> tuple[requests.Response | None, str | None]:
         last_url: str = url
         headers: dict[str, str] = {
@@ -119,24 +130,25 @@ class WebClient:
                 while response.status_code in range(300, 400):
                     new_url = response.headers['location']
                     if not urlparse(new_url).scheme:
-                        new_url = f'{urlparse(last_url).scheme}://{urlparse(last_url).netloc.rstrip("/")}/{new_url.lstrip("/")}'
+                        new_url = (f'{urlparse(last_url).scheme}://{urlparse(last_url).netloc.rstrip("/")}'
+                                   f'/{new_url.lstrip("/")}')
                     last_url = new_url
-                    if verbose:
-                        p_url = urlparse(last_url)
-                        if p_url.port:
-                            print(f'>> {p_url.scheme}://{p_url.netloc.rstrip("/")}:{p_url.port}/{p_url.path.lstrip("/")} ', end='')
-                        else:
-                            print(f'>> {p_url.scheme}://{p_url.netloc.rstrip("/")}/{p_url.path.lstrip("/")} ', end='')
-                    return self.__request(last_url, method, follow_redirect, code_200_needed, verify, verbose)
-            if verbose:
-                if code_200_needed and response.status_code != 200:
-                    print(colorize(f'Error #{response.status_code} ', Fore.RED), end=' ')
-                else:
-                    print(colorize(f'{response.status_code} ',
-                                   Fore.GREEN if response.status_code == 200 else Fore.YELLOW), end='')
+                    p_url = urlparse(last_url)
+                    if p_url.port:
+                        print(
+                            f'>> {p_url.scheme}://{p_url.netloc.rstrip("/")}:{p_url.port}/{p_url.path.lstrip("/")} ',
+                            end='')
+                    else:
+                        print(f'>> {p_url.scheme}://{p_url.netloc.rstrip("/")}/{p_url.path.lstrip("/")} ', end='')
+                    return self.__request(last_url, method, follow_redirect, code_200_needed, verify)
+            if code_200_needed and response.status_code != 200:
+                print(colorize(f'Error #{response.status_code} ', Fore.RED), end=' ')
+            else:
+                print(colorize(f'{response.status_code} ',
+                               Fore.GREEN if response.status_code == 200 else Fore.YELLOW), end='')
             return response, last_url
         except ConnectionError as ce:
-            if matches := re.match('^.*ProxyError\(.*OSError\(\'Tunnel connection failed: (.*)\'\).*$', str(ce)):
+            if matches := re.match(r'^.*ProxyError\(.*OSError\(\'Tunnel connection failed: (.*)\'\).*$', str(ce)):
                 print(colorize(f'Blocked by ProxyError({matches.group(1)}) ', Fore.YELLOW), end='')
                 raise ProxyError()
             # if matches := re.match('^.*ProxyError\(.*RemoteDisconnected\(\'(.*)\'\).*$', str(ce)):
@@ -169,13 +181,11 @@ class WebClient:
             raise ConnectionError()
 
     def head(
-            self, url: str, follow_redirect: bool = True, code_200_needed: bool = True, verify: bool = True,
-            verbose: bool = True
+            self, url: str, follow_redirect: bool = True, code_200_needed: bool = True, verify: bool = True
     ) -> tuple[requests.Response | None, str | None]:
-        return self.__request(url, 'head', follow_redirect, code_200_needed, verify, verbose)
+        return self.__request(url, 'head', follow_redirect, code_200_needed, verify)
 
     def get(
-            self, url: str, follow_redirect: bool = True, code_200_needed: bool = True, verify: bool = True,
-            verbose: bool = True
+            self, url: str, follow_redirect: bool = True, code_200_needed: bool = True, verify: bool = True
     ) -> tuple[requests.Response | None, str | None]:
-        return self.__request(url, 'get', follow_redirect, code_200_needed, verify, verbose)
+        return self.__request(url, 'get', follow_redirect, code_200_needed, verify)
