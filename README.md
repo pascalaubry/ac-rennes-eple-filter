@@ -101,7 +101,7 @@ proxies:
 
 ```
 $> ac-rennes-eple-filter x.y.z Copyright (c) 2022-2024 Région académique Bretagne
-usage: ac_rennes_eple_filter.py [-h] [--update] [--policy] [--test URLS]
+usage: ac_rennes_eple_filter.py [-h] [--update] [--policy] [--check URLS]
                                 [--search PATTERN] [--control PROFILE]
                                 [--optimize]
 
