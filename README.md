@@ -97,7 +97,7 @@ proxies:
 
 ## Utilisation
 
-### Syntaxe
+### Syntaxe (`--help`)
 
 ```
 $> ac-rennes-eple-filter x.y.z Copyright (c) 2022-2024 Région académique Bretagne
@@ -123,7 +123,7 @@ La mise à jour des listes (téléchargement puis stockage dans la base de donn�
 
 ```
 $> ac_rennes_eple_filter-x.y.z.exe --update
-ac-rennes-eple-filter 1.7.1 Copyright (c) 2022-2024 Région académique Bretagne
+ac-rennes-eple-filter x.y.z Copyright (c) 2022-2024 Région académique Bretagne
 Reading proxy config... OK
 Initializing database... OK
 Opening database connection sqlite://ac_rennes_eple_filter.db... ac_rennes_eple_filter.db not found, file will be created
