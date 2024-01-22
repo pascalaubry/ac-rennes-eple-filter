@@ -5,7 +5,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from PyInstaller.__main__ import run
 from colorama import Fore
 
-from common import colorize
+from common import colorize, COPYRIGHT
 from ac_rennes_eple_filter import VERSION
 
 BUILD_DIR: Path = Path('build')
@@ -60,6 +60,7 @@ def build_exe():
         '--add-data=venv/Lib/site-packages/tldextract/.tld_set_snapshot;tldextract',
         '--add-data=venv/Lib/site-packages/whois/data/public_suffix_list.dat;whois/data',
         '--paths=.',
+        '--icon=ac_rennes_eple_filter.ico',
         'ac_rennes_eple_filter.py',
     ]
     run(pyinstaller_params)
@@ -79,6 +80,14 @@ def create_project():
         print(f'Moving {file} to {PROJECT_DIR}... ', end='')
         shutil.copy(file, PROJECT_DIR / file)
         print(colorize(f'OK', Fore.GREEN))
+    target_file = PROJECT_DIR / 'filter.bat'
+    print(f'Creating batch file {target_file}...')
+    with open(target_file, 'wt') as f:
+        f.write(f'@echo off\n'
+                f'echo ac_rennes_eple_filter {VERSION} - {COPYRIGHT}\n'
+                f'echo Chargement du programme, veuillez patienter...\n'
+                f'{EXE_FILENAME}\n'
+                f'pause\n')
 
 
 def create_zip():
