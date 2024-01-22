@@ -3,9 +3,9 @@
 ac-rennes-eple-filter est un outil de l'Académie de Rennes permettant des opérations liées au filtrage web en EPLE mis en œuvre par l'Académie et les collectivités, dans le cadre de la protection des mineur·es.
 
 L’outil a été conçu pour faciliter l’assistance sur le filtrage en EPLE, il permet :
-•	en assistance de niveau 1, aux personnels de la plateforme AMIGO de rapidement déterminer si un problème soumis est véritablement un problème de filtrage ;
-•	en assistance de niveau 2, aux personnels de la CSN de simuler le comportement des pare-feu pour mettre au point et ajuster la politique académique de filtrage ;
-•	Éventuellement en assistance de niveau 3, de repérer d’éventuelles incohérences entre la politique attendue et celles mises en place.
+- en assistance de niveau 1, aux personnels de la plateforme AMIGO de rapidement déterminer si un problème soumis est véritablement un problème de filtrage ;
+- en assistance de niveau 2, aux personnels de la CSN de simuler le comportement des pare-feu pour mettre au point et ajuster la politique académique de filtrage ;
+- éventuellement en assistance de niveau 3, de repérer d’éventuelles incohérences entre la politique attendue et celles mises en place.
 
 ## Historique
 
