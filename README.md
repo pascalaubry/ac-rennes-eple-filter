@@ -7,20 +7,6 @@ L’outil a été conçu pour faciliter l’assistance sur le filtrage en EPLE, 
 - en assistance de niveau 2, aux personnels de la CSN de simuler le comportement des pare-feu pour mettre au point et ajuster la politique académique de filtrage ;
 - éventuellement en assistance de niveau 3, de repérer d’éventuelles incohérences entre la politique attendue et celles mises en place.
 
-## Historique
-
-| Date             | Version | Auteur·ice   | Modifications                                                          |
-|------------------|---------|--------------|------------------------------------------------------------------------|
-| 12 janvier 2024  | 1.7     | Pascal AUBRY | Correction d'un bug WHOIS<br/>Prise en charge des pare-feu Stormshield |
-| 20 décembre 2023 | 1.6     | Pascal AUBRY | Prise en charge du pare-feu Artica du SIB                              |
-| 10 octobre 2023  | 1.5     | Pascal AUBRY | Stockage DB2                                                           |
-| 21 mars 2023     | 1.4     | Pascal AUBRY | Ajout du fichier de configuration proxy.yml                            |
-| 13 décembre 2022 | 1.3     | Pascal AUBRY | Optimisation des téléchargements                                       |
-| 9 décembre 2022  | 1.2     | Pascal AUBRY | Amélioration de la gestion des erreurs                                 |
-| 5 décembre 2022  | 1.1     | Pascal AUBRY | Création automatique de la base de données au premier lancement        |
-| 2 décembre 2022  | 1.0     | Pascal AUBRY | Version initiale                                                       |
-
-
 ## Fonctionnement général
 
 ![docs/images/fonctionnement.png](docs/images/fonctionnement.png)
@@ -344,4 +330,15 @@ What do you want to do?
 Your choice: 
 ```
 
+## Historique
 
+| Date             | Version | Auteur·ice   | Modifications                                                                                                                    |
+|------------------|---------|--------------|----------------------------------------------------------------------------------------------------------------------------------|
+| 12 janvier 2024  | 1.7     | Pascal AUBRY | Correction d'un bug WHOIS<br/>Prise en charge du filtrage Stormshield de l'Académie<br/>Prise en charge du filtrage Squid du SIB |
+| 20 décembre 2023 | 1.6     | Pascal AUBRY | Prise en charge du filtrage Artica du SIB                                                                                        |
+| 10 octobre 2023  | 1.5     | Pascal AUBRY | Stockage DB2                                                                                                                     |
+| 21 mars 2023     | 1.4     | Pascal AUBRY | Ajout du fichier de configuration proxy.yml                                                                                      |
+| 13 décembre 2022 | 1.3     | Pascal AUBRY | Optimisation des téléchargements                                                                                                 |
+| 9 décembre 2022  | 1.2     | Pascal AUBRY | Amélioration de la gestion des erreurs                                                                                           |
+| 5 décembre 2022  | 1.1     | Pascal AUBRY | Création automatique de la base de données au premier lancement                                                                  |
+| 2 décembre 2022  | 1.0     | Pascal AUBRY | Version initiale                                                                                                                 |
