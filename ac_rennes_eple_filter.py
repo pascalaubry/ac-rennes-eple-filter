@@ -198,7 +198,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--update', help='update the database', action='store_true')
     parser.add_argument('--policy', help='print the policy rules', action='store_true')
-    parser.add_argument('--test', help='test a URLs or domains', dest='urls', type=str)
+    parser.add_argument('--check', help='test URLs or domains', dest='urls', type=str)
     parser.add_argument('--search', help='search for a pattern', dest='pattern', type=str)
     parser.add_argument('--control', help='control the policy', dest='profile', type=str)
     parser.add_argument('--optimize', help='optimize local rules', action='store_true')

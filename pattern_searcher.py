@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 from common import colorize, get_reports_dir, VERSION
@@ -13,7 +14,7 @@ class PatternSearcher:
     def __init__(self, policy: Policy, database: Database, pattern: str, verbose: bool = True):
         self.__policy = policy
         self.__database = database
-        self.pattern = pattern.replace('%', '').lower()
+        self.pattern = pattern.replace('%', '').replace('/', '').lower()
         pattern_color = Fore.BLUE
         if verbose:
             print(f'Searching pattern {colorize(self.pattern, pattern_color)}...')
@@ -49,7 +50,8 @@ class PatternSearcher:
         return result
 
     def print(self):
-        html_file: Path = (get_reports_dir() / f'policy-{VERSION}.html')
+        date: str = datetime.now().strftime("%Y%m%d")
+        html_file: Path = (get_reports_dir() / f'search-{VERSION}-{self.pattern}-{date}.html')
         HTMLRenderer().render(
             'search.html',
             {

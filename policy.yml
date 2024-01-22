@@ -321,6 +321,3 @@ rules:
   -
     category: webmail
     description: Messagerie sur internet (hotmail, etc.)
-control:
-  - pascal-aubry.fr
-  - ac-orleans.fr

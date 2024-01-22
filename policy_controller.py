@@ -383,7 +383,7 @@ class PolicyController:
         if not self.policy_expected_results_file.is_file():
             print(colorize(f'file not found.', Fore.YELLOW))
             self.__build_policy_expected_results_file()
-        elif self.policy_expected_results_file.lstat().st_mtime > time.time() - 60 * 60 * 24:
+        elif self.policy_expected_results_file.lstat().st_mtime > time.time() - 2 * 24 * 3600:
             print(colorize(f'up to date.', Fore.GREEN))
         else:
             print(colorize(f'obsolete.', Fore.GREEN))
