@@ -36,6 +36,7 @@ class ResultStatus(IntEnum):
     NotAuthenticated = 3
     Allowed = 4
     Denied = 5
+    AntivirusError = 6
 
     @property
     def report_str(self) -> str:
@@ -52,6 +53,8 @@ class ResultStatus(IntEnum):
                 return 'Autorisée'
             case ResultStatus.Denied:
                 return 'Interdite'
+            case ResultStatus.AntivirusError:
+                return 'Blocage antivirus'
             case _:
                 raise ValueError
 
@@ -69,6 +72,8 @@ class ResultStatus(IntEnum):
                 return 'Allowed'
             case ResultStatus.Denied:
                 return 'Denied'
+            case ResultStatus.AntivirusError:
+                return 'Antivirus error'
             case _:
                 raise ValueError
 
@@ -205,7 +210,7 @@ class WebResult:
                 f"Unknown X-Squid-Error=[{self.response_headers['X-Squid-Error']}] ", Fore.YELLOW), end='')
         if self.response_code == 499:
             print(colorize(f'Blocked by antivirus ', Fore.YELLOW), end='')
-            self.status = ResultStatus.Denied
+            self.status = ResultStatus.AntivirusError
             return
         response_lines: list[str] = self.response_content.splitlines() if self.response_content else []
         one_line_content: str = ' '.join(response_lines)
@@ -237,59 +242,65 @@ class WebResult:
                     f'URL {self.matching_domain} blocked for category {self.matching_category} ', Fore.YELLOW), end='')
                 self.status = ResultStatus.Denied
                 return
-            else:
-                print(colorize(f'[<h1>page web bloquée</h1> not found] ', Fore.BLUE))
+            print(colorize(f'[<h1>page web bloquée</h1> not found] ', Fore.LIGHTBLUE_EX))
             for line in response_lines:
                 match: bool = False
                 if re.match(r'.*<h1>page web bloquée</h1>.*', line.lower()):
                     match = True
                 if re.match(r'.*<b>category:</b>.*', line.lower()):
                     match = True
+                if re.match(r'.*<b>category</b>:.*', line.lower()):
+                    match = True
                 if re.match(r'.*<b>url:</b>.*', line.lower()):
                     match = True
-                print(colorize(line[:256], Fore.BLUE if match else Fore.YELLOW))
-            self.status = ResultStatus.Denied
+                if re.match(r'.*<b>url</b>:.*', line.lower()):
+                    match = True
+                print(colorize(line[:256], Fore.LIGHTBLUE_EX if match else Fore.YELLOW))
+            self.status = ResultStatus.Allowed
             return
         if self.response_code == 202:  # Stormshield
-            title_https_web_site_blocked: int = False
+            block_message: str | None = None
             for line in response_lines:
-                if re.match(r'.*<title>\s*(HTTPS web site blocked)\s*</title>.*', line):
-                    title_https_web_site_blocked = True
-                if line.strip() == 'Blocage':
-                    print(colorize(f'Blocked by Stormshield ({line}) ', Fore.YELLOW), end='')
-                    self.status = ResultStatus.Denied
+                if matches := re.match(r'.*<b>SSL Error</b>: <i>([^<]*)</i>.*', line):
+                    reason = matches.group(1)
+                    print(colorize(f'Blocked by Stormshield (SSL error: {reason}) ', Fore.YELLOW), end='')
+                    self.status = ResultStatus.SslError
                     return
-                if matches := re.match(r'.*<title id="header_title">([^<]+)</title>.*', line):
-                    print(colorize(f'Blocked by Stormshield (policy: {matches.group(1)}) ', Fore.YELLOW), end='')
-                    self.status = ResultStatus.Denied
-                    return
-                if matches := re.match(
-                        r'.*<blockquote><h\d>\s*Reason\s*:\s*([^<]*)<br>.*</h\d></blockquote>.*', line):
-                    reason: str = matches.group(1).strip()
-                    for string in [
-                        'expired',  # The SSL server certificate is expired or not yet valid
-                        'not trusted',  # The SSL server certificate authority is not trusted
-                        'self-signed',  # The SSL server uses a self-signed certificate
-                        'requested name',  # The SSL server does not match the requested name
-                    ]:
-                        if reason.find(string) != -1:
-                            print(colorize(f'Blocked by Stormshield (SSL error: {reason}) ', Fore.YELLOW), end='')
-                            self.status = ResultStatus.SslError
-                            return
-                    for string in [
-                        'rejects the connection',  # Your administrator rejects the connection to this SSL server
-                    ]:
-                        if reason.find(string) != -1:
-                            print(colorize(f'Blocked by Stormshield (policy error: {reason}) ', Fore.YELLOW), end='')
-                            self.status = ResultStatus.Denied
-                            return
-                    print(colorize(f'Blocked by Stormshield (unknown error: {reason}) ', Fore.YELLOW), end='')
-                    self.status = ResultStatus.Denied
-                    return
-            if title_https_web_site_blocked:
-                print(colorize('HTTPS web site blocked (no reason found in content) ', Fore.YELLOW), end='')
-                for line in response_lines:
-                    print(colorize(line[:256], Fore.YELLOW))
+                elif matches := re.match(r'.*<title>\s*(HTTPS web site blocked)\s*</title>.*', line):
+                    block_message = matches.group(1)
+                elif line.strip() == 'Blocage':
+                    block_message = line.strip()
+                elif matches := re.match(r'.*<title id="header_title">([^<]+)</title>.*', line):
+                    block_message = matches.group(1)
+                else:
+                    if matches := re.match(
+                            r'.*<blockquote><h\d>\s*Reason\s*:\s*([^<]*)<br>.*</h\d></blockquote>.*', line):
+                        reason: str = matches.group(1).strip()
+                        for string in [
+                            'expired',  # The SSL server certificate is expired or not yet valid
+                            'not trusted',  # The SSL server certificate authority is not trusted
+                            'self-signed',  # The SSL server uses a self-signed certificate
+                            'requested name',  # The SSL server does not match the requested name
+                        ]:
+                            if reason.find(string) != -1:
+                                print(colorize(f'Blocked by Stormshield (SSL error: {reason}) ', Fore.YELLOW), end='')
+                                self.status = ResultStatus.SslError
+                                return
+                        for string in [
+                            'rejects the connection',  # Your administrator rejects the connection to this SSL server
+                        ]:
+                            if reason.find(string) != -1:
+                                block_message = reason
+                        if not block_message:
+                            block_message = f'unknown reason: {reason}'
+                if matches := re.match(r'.*<b>Website</b>:\s*<i>([^<]*)</i><.*', line):
+                    self.matching_domain = matches.group(1).strip('/')
+                    print(colorize(f'domain={self.matching_domain} ', Fore.YELLOW), end='')
+                if matches := re.match(r'.*<b>Category</b>:\s*<i>([^<]*)</i><.*', line):
+                    self.matching_category = matches.group(1)
+                    print(colorize(f'category={self.matching_category} ', Fore.YELLOW), end='')
+            if block_message is not None:
+                print(colorize(f'Blocked by Stormshield ({block_message}) ', Fore.YELLOW), end='')
                 self.status = ResultStatus.Denied
                 return
             print(colorize('No blocking pattern found ', Fore.YELLOW), end='')
@@ -298,7 +309,14 @@ class WebResult:
             self.status = ResultStatus.Allowed
             return
         if self.response_code == 200:
+            if re.match(r'.*lose\.com.*', self.domain):
+                for line in response_lines:
+                    print(colorize(line[:256], Fore.YELLOW))
             for line in response_lines:
+                if re.match(r'.*<title>Trend Micro&trade; Apex One</title>.*', line):
+                    print(colorize('Blocked by Trend ', Fore.YELLOW), end='')
+                    self.status = ResultStatus.Denied
+                    return
                 # <meta
                 #   http-equiv="refresh"
                 #   content="0; url=https://85-NAC01.colleges35.sib.fr/captive-portal?destination_url=<url>">
@@ -319,7 +337,9 @@ class WebResult:
 
     @property
     def error(self) -> bool:
-        return self.status in [ResultStatus.DnsError, ResultStatus.SslError, ResultStatus.ConnectError]
+        return self.status in [
+            ResultStatus.DnsError, ResultStatus.SslError, ResultStatus.ConnectError, ResultStatus.AntivirusError
+        ]
 
     @property
     def allowed(self) -> bool:
@@ -363,6 +383,7 @@ class PolicyController:
         print(f'Hostname:   {self.hostname}')
         self.private_ip: str = socket.gethostbyname(self.hostname)
         print(f'Private IP: {self.private_ip}')
+        get_proxy_config()
         print('Retrieving public IP... ', end='')
         self.public_ip: str | None = None
         self.public_hostname: str | None = None
@@ -373,7 +394,7 @@ class PolicyController:
             )[0].content.decode('utf8')
             if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', self.public_ip):
                 print(colorize(self.public_ip.splitlines()[0], Fore.YELLOW), end='')
-                self.public_ip = ''
+                self.public_ip = None
             else:
                 self.public_hostname = socket.gethostbyaddr(self.public_ip)[0]
         except ConnectionError as ce:
@@ -382,10 +403,14 @@ class PolicyController:
         except DNSException as de:
             print(colorize(f'could not reach {ip_url} ({de.__class__.__name__})', Fore.YELLOW), end='')
             pass
-        except socket.herror:
+        except socket.herror as she:
+            print(colorize(f'could not reach {ip_url} ({she.__class__.__name__})', Fore.YELLOW), end='')
             pass
-        except AttributeError:
+        except AttributeError as ae:
+            print(colorize(f'could not reach {ip_url} ({ae.__class__.__name__})', Fore.YELLOW), end='')
             pass
+        if self.public_ip is None:
+            self.public_ip = self.private_ip
         if self.public_hostname is None or self.public_ip == self.public_hostname:
             print(f'\nPublic IP:  {self.public_ip}')
         else:
@@ -631,6 +656,10 @@ class PolicyController:
     @property
     def too_permissive_nb(self) -> int:
         return len(self.too_permissive_urls)
+
+    @property
+    def not_compliant_nb(self) -> int:
+        return len(self.too_strict_urls) + len(self.too_permissive_urls)
 
     @property
     def compliant_nb(self) -> int:
