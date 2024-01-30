@@ -298,6 +298,7 @@ Your choice:
 
 | Date             | Version | Auteur·ice   | Modifications                                                                                                                    |
 |------------------|---------|--------------|----------------------------------------------------------------------------------------------------------------------------------|
+| 30 janvier 2024  | 1.8     | Pascal AUBRY | Détection du filtrage Trend                                                                                                      |
 | 12 janvier 2024  | 1.7     | Pascal AUBRY | Correction d'un bug WHOIS<br/>Prise en charge du filtrage Stormshield de l'Académie<br/>Prise en charge du filtrage Squid du SIB |
 | 20 décembre 2023 | 1.6     | Pascal AUBRY | Prise en charge du filtrage Artica du SIB                                                                                        |
 | 10 octobre 2023  | 1.5     | Pascal AUBRY | Stockage DB2                                                                                                                     |
