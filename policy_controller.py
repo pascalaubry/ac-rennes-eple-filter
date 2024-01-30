@@ -309,9 +309,6 @@ class WebResult:
             self.status = ResultStatus.Allowed
             return
         if self.response_code == 200:
-            if re.match(r'.*lose\.com.*', self.domain):
-                for line in response_lines:
-                    print(colorize(line[:256], Fore.YELLOW))
             for line in response_lines:
                 if re.match(r'.*<title>Trend Micro&trade; Apex One</title>.*', line):
                     print(colorize('Blocked by Trend ', Fore.YELLOW), end='')
