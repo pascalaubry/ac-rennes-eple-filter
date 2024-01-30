@@ -1,0 +1,79 @@
+<table class="table table-tests table-hover">
+    <thead class="table-dark sticky-top">
+        <tr>
+            <th class="url">URL [> redirection]</th>
+            <th class="result">Résultat obtenu</th>
+            <th class="expected_result">Résultat attendu (politique académique)</th>
+            <th class="compliance">Conformité</th>
+        </tr>
+        <tr>
+        </tr>
+    </thead>
+    <tbody>
+        {% for url in controller.web_results %}
+            {% with web_result=controller.web_results|get_item:url %}
+            {% with final_url=web_result.final_url %}
+            {% with domain=web_result.domain %}
+            {% with policy_expected_result=controller.policy_expected_results|get_item:domain %}
+            {% if show_all_domains or web_result.compliant == False %}
+                <tr class="
+                    {% if web_result.error %}
+                        table-warning
+                    {% else %}
+                        {% if web_result.compliant %}
+                            table-success
+                        {% else %}
+                            table-danger
+                        {% endif %}
+                    {% endif %}
+                    ">
+                    <td class="url">
+                        <a href="{{ url }}" target="_blank">{{ url }}</a>
+                        {% if final_url and url != final_url %}&gt; <a href="{{ final_url }}" target="_blank">{{ web_result.simplified_final_url }}</a>{% endif %}
+                    </td>
+                    <td class="result">
+                        <span class="{% if web_result.error %}error{% else %}{% if web_result.compliant %}{% else %}not-compliant{% endif %}{% endif %}">
+                            {{ web_result.status.report_str }}
+                            {% if web_result.matching_domain or web_result.matching_category %}
+                                ({{ web_result.matching_domain }}@{{ web_result.matching_category }})
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td class="expected_result">
+                        <span class="
+                            {% if web_result.error or web_result.compliant %}
+                            {% else %}
+                                not-compliant
+                            {% endif %}">
+                        {% if policy_expected_result.allowed %}
+                            Autorisée
+                        {% else %}
+                            Interdite
+                        {% endif %}
+                        ({% if policy_expected_result.matching_category %}{{ policy_expected_result.matching_domain }}@{{ policy_expected_result.matching_category }}{% else %}<em>par défaut</em>{% endif %})
+                        </span>
+                    </td>
+                    <td class="compliance">
+                        {% if web_result.error %}
+                            <span class="error">Inconnue</span>
+                        {% else %}
+                            {% if web_result.compliant %}
+                                <span class="compliant">OK</span>
+                            {% else %}
+                                {% if web_result.allowed %}
+                                    <span class="too-permissive">Trop permissive</span>
+                                {% else %}
+                                    <span class="too-strict">Trop stricte</span>
+                                {% endif %}
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endif %}
+            {% endwith %}
+            {% endwith %}
+            {% endwith %}
+            {% endwith %}
+        {% endfor %}
+    </tbody>
+</table>

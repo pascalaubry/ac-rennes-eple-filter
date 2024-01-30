@@ -54,6 +54,7 @@ def build_exe():
         '--add-data=policy.yml;.',
         '--add-data=templates/base.html;templates',
         '--add-data=templates/control.html;templates',
+        '--add-data=templates/control_domains.html;templates',
         '--add-data=templates/policy.html;templates',
         '--add-data=templates/check.html;templates',
         '--add-data=templates/check_rules.html;templates',
@@ -88,22 +89,22 @@ def create_project():
         print(f'Copying {EXPORT_DATA_DIR}/{file} to {PROJECT_DIR}... ', end='')
         shutil.copy(EXPORT_DATA_DIR / file, PROJECT_DIR / file)
         print(colorize(f'OK', Fore.GREEN))
-    target_file = PROJECT_DIR / 'filter.bat'
-    print(f'Creating batch file {target_file}...')
-    with open(target_file, 'wt') as f:
-        f.write(f'@echo off\n'
-                f'echo ac_rennes_eple_filter {VERSION} - {COPYRIGHT}\n'
-                f'echo Chargement du programme, veuillez patienter...\n'
-                f'{EXE_FILENAME}\n'
-                f'pause\n')
-    target_file = PROJECT_DIR / 'update_database.bat'
-    print(f'Creating batch file {target_file}...')
-    with open(target_file, 'wt') as f:
-        f.write(f'@echo off\n'
-                f'echo ac_rennes_eple_filter {VERSION} - {COPYRIGHT}\n'
-                f'echo Chargement du programme, veuillez patienter...\n'
-                f'{EXE_FILENAME} --update\n'
-                f'pause\n')
+    targets: dict[str, str] = {
+        'filter': '',
+        'update': '--update',
+        'control_clg': '--control=clg',
+        'control_lyc': '--control=lyc',
+        'control_per': '--control=per',
+    }
+    for target_id in targets:
+        target_file = PROJECT_DIR / f'{target_id}.bat'
+        print(f'Creating batch file {target_file}...')
+        with open(target_file, 'wt') as f:
+            f.write(f'@echo off\n'
+                    f'echo ac_rennes_eple_filter {VERSION} - {COPYRIGHT}\n'
+                    f'echo Chargement du programme, veuillez patienter...\n'
+                    f'{EXE_FILENAME} {targets[target_id]}\n'
+                    f'pause\n')
 
 
 def create_zip():
