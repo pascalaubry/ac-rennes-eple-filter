@@ -64,8 +64,20 @@ class Category:
         final_url: str
         try:
             response = self.__web.get(self.__url)[0]
-        except ProxyError | SSLError | DNSException | ConnectionError | Timeout:
-            print(colorize(f'no response', Fore.RED))
+        except ProxyError as e:
+            print(colorize(f'no response ({e.__class__.__name__})', Fore.RED))
+            return False
+        except SSLError as e:
+            print(colorize(f'no response ({e.__class__.__name__})', Fore.RED))
+            return False
+        except DNSException as e:
+            print(colorize(f'no response ({e.__class__.__name__})', Fore.RED))
+            return False
+        except ConnectionError as e:
+            print(colorize(f'no response ({e.__class__.__name__})', Fore.RED))
+            return False
+        except Timeout as e:
+            print(colorize(f'no response ({e.__class__.__name__})', Fore.RED))
             return False
         if 'last-modified' not in response.headers:
             print(colorize(f'last-modified field not in response header', Fore.RED))
@@ -103,7 +115,7 @@ class Category:
                     self.__store_domains(domains)
                     domains = []
                 if entries > 0 and entries % print_size == 0:
-                    print(colorize('.', Fore.GREEN), end='')
+                    print('.', end='')
             self.__store_domains(domains)
             print(colorize(
                 f' {entries} domains added in {time.time() - start:.0f} seconds', Fore.GREEN))

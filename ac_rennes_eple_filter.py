@@ -1,4 +1,5 @@
 import re
+from contextlib import suppress
 from pathlib import Path
 
 from domain_checker import DomainChecker
@@ -12,7 +13,8 @@ from database import Database
 from policy import Policy, Rule
 from pattern_searcher import PatternSearcher
 from database_updater import DatabaseUpdater, RennesOrigin
-from web_client import WebClient, ProxyConfig
+from proxy import read_proxy_configs, set_proxy_config, get_proxy_config
+from web_client import WebClient
 
 
 class Filter:
@@ -34,6 +36,7 @@ class Filter:
                 print(colorize('Database is empty, updating...', Fore.RED))
                 update = True
             if update:
+                get_proxy_config()  # choose the proxy if not set
                 self.update_database()
 
     def update_database(self):
@@ -201,29 +204,35 @@ def main():
     parser.add_argument('--check', help='test URLs or domains', dest='urls', type=str)
     parser.add_argument('--search', help='search for a pattern', dest='pattern', type=str)
     parser.add_argument('--control', help='control the policy', dest='profile', type=str)
+    parser.add_argument('--proxy', help='use the given proxy', dest='proxy_id', type=str)
     parser.add_argument('--optimize', help='optimize local rules', action='store_true')
     args = parser.parse_args()
-    ProxyConfig()  # create an instance to detect errors ASAP
-    database: Database = Database()
-    policy: Policy = Policy(database)
-    if args.update:
-        Filter(database, policy).update_database()
-    elif args.policy:
-        Filter(database, policy).print_policy()
-    elif args.urls:
-        filt: Filter = Filter(database, policy, update_database_if_needed=True)
-        for url in args.urls.split(','):
-            url = url.strip()
-            if url:
-                filt.check_domain(url)
-    elif args.pattern:
-        Filter(database, policy, update_database_if_needed=True).search_pattern(args.pattern)
-    elif args.profile:
-        Filter(database, policy, update_database_if_needed=True).control_policy(args.profile)
-    elif args.optimize:
-        Filter(database, policy, update_database_if_needed=True).optimize_local_rules()
-    else:
-        Filter(database, policy, update_database_if_needed=True).interactive()
+    with suppress(KeyboardInterrupt):
+        read_proxy_configs()  # detect errors ASAP
+        if args.proxy_id:
+            set_proxy_config(args.proxy_id)
+        database: Database = Database()
+        policy: Policy = Policy(database)
+        if args.update:
+            set_proxy_config(args.proxy_id)
+            Filter(database, policy).update_database()
+        elif args.policy:
+            Filter(database, policy).print_policy()
+        elif args.urls:
+            filt: Filter = Filter(database, policy, update_database_if_needed=True)
+            for url in args.urls.split(','):
+                url = url.strip()
+                if url:
+                    filt.check_domain(url)
+        elif args.pattern:
+            Filter(database, policy, update_database_if_needed=True).search_pattern(args.pattern)
+        elif args.profile:
+            set_proxy_config(args.proxy_id)
+            Filter(database, policy, update_database_if_needed=True).control_policy(args.profile)
+        elif args.optimize:
+            Filter(database, policy, update_database_if_needed=True).optimize_local_rules()
+        else:
+            Filter(database, policy, update_database_if_needed=True).interactive()
 
 
 if __name__ == '__main__':

@@ -1,0 +1,15 @@
+system:
+  type: system
+  name: utilisation de la configuration système
+direct:
+  type: direct
+  name: connexion directe à internet
+manual-example:
+  type: manual
+  name: My proxy
+  http: squid.domain:3128
+  https: squid.domain:3128
+pac-example:
+  type: pac
+  name: PAC
+  url: https://host.domain/proxy.pac

@@ -12,6 +12,7 @@ BUILD_DIR: Path = Path('build')
 DIST_DIR: Path = Path('dist')
 basename: str = f'ac_rennes_eple_filter-{VERSION}'
 EXPORT_DIR: Path = Path('export')
+EXPORT_DATA_DIR: Path = Path('export-data')
 PROJECT_DIR: Path = EXPORT_DIR / basename
 ZIP_FILE: Path = Path(str(PROJECT_DIR) + '.zip')
 EXE_FILENAME = basename + '.exe'
@@ -50,6 +51,7 @@ def build_exe():
         '--noconfirm',
         '--name=' + basename,
         '--onefile',
+        '--add-data=policy.yml;.',
         '--add-data=templates/base.html;templates',
         '--add-data=templates/control.html;templates',
         '--add-data=templates/policy.html;templates',
@@ -76,9 +78,15 @@ def create_project():
     print(f'Moving {dist_exe_file} to {PROJECT_DIR}... ', end='')
     shutil.move(str(dist_exe_file), str(PROJECT_DIR))
     print(colorize(f'OK', Fore.GREEN))
-    for file in ['database.yml', 'policy.yml', 'proxy.yml', ]:
-        print(f'Moving {file} to {PROJECT_DIR}... ', end='')
+    """
+    for file in ['policy.yml', ]:
+        print(f'Copying {file} to {PROJECT_DIR}... ', end='')
         shutil.copy(file, PROJECT_DIR / file)
+        print(colorize(f'OK', Fore.GREEN))
+    """
+    for file in ['proxy.yml', ]:
+        print(f'Copying {EXPORT_DATA_DIR}/{file} to {PROJECT_DIR}... ', end='')
+        shutil.copy(EXPORT_DATA_DIR / file, PROJECT_DIR / file)
         print(colorize(f'OK', Fore.GREEN))
     target_file = PROJECT_DIR / 'filter.bat'
     print(f'Creating batch file {target_file}...')
@@ -87,6 +95,14 @@ def create_project():
                 f'echo ac_rennes_eple_filter {VERSION} - {COPYRIGHT}\n'
                 f'echo Chargement du programme, veuillez patienter...\n'
                 f'{EXE_FILENAME}\n'
+                f'pause\n')
+    target_file = PROJECT_DIR / 'update_database.bat'
+    print(f'Creating batch file {target_file}...')
+    with open(target_file, 'wt') as f:
+        f.write(f'@echo off\n'
+                f'echo ac_rennes_eple_filter {VERSION} - {COPYRIGHT}\n'
+                f'echo Chargement du programme, veuillez patienter...\n'
+                f'{EXE_FILENAME} --update\n'
                 f'pause\n')
 
 

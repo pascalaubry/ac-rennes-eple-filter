@@ -56,7 +56,7 @@ class Rule:
 
 class Policy:
 
-    policy_config_file: Path = Path('policy.yml')
+    policy_config_file: Path = Path(__file__).resolve().parent / 'policy.yml'
 
     profiles: list[str] = ['clg', 'lyc', 'per', ]
 

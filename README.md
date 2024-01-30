@@ -24,14 +24,6 @@ L’outil a été conçu pour faciliter l’assistance sur le filtrage en EPLE, 
 
 ## Configuration
 
-### Accès à la base de données
-
-L’accès à la base de données se configure dans le fichier de configuration [`database.yml`](database.yml), au format YAML :
-
-```
-file: ac_rennes_eple_filter.db
-```
-
 ### Politique de filtrage
 
 La politique de filtrage académique est décrite dans le fichier de configuration [`policy.yml`](policy.yml), également au format YAML (par défaut la configuration fournie est celle correspondant à la politique académique en cours) :
@@ -51,35 +43,7 @@ rules:
 
 ### Proxy (≥ 1.4)
 
-La configuration du proxy utilisé pour les téléchargements est indiquée dans le fichier de configuration [`proxy.yml`](proxy.yml), également au format YAML.
-
-#### Appui sur la configuration définie au niveau système
-
-```
-type: system
-```
-
-#### Connexion directe
-
-```
-type: direct
-```
-
-#### Proxy pac
-
-```
-type: pac
-pac_url: http://proxy.in.ac-rennes.fr/proxy.pac
-```
-
-#### Configuration manuelle
-
-```
-type: manual
-proxies:
-  http: educ-cd35-lbprx.colleges35.local:3128
-  https: educ-cd35-lbprx.colleges35.local:3128
-```
+Les configurations de proxy utilisables pour les téléchargements sont indiquées dans le fichier de configuration [`proxy.yml`](export-data/proxy.yml), également au format YAML.
 
 ## Utilisation
 

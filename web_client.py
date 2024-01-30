@@ -1,90 +1,18 @@
-import hashlib
 import re
-from pathlib import Path
 from urllib.parse import urlparse
 
-import yaml
 from dns.exception import DNSException
 from requests.exceptions import SSLError, ProxyError, TooManyRedirects, ConnectionError, Timeout
 from urllib3 import disable_warnings
 from urllib3.exceptions import InsecureRequestWarning
-from yaml.loader import SafeLoader
-from common import colorize, exit_program, singleton
+from common import colorize, exit_program
 from colorama import Fore
 import requests
 from pypac import PACSession, get_pac
 
+from proxy import ProxyConfig, get_proxy_config
 
 disable_warnings(InsecureRequestWarning)
-
-
-@singleton
-class ProxyConfig:
-
-    proxy_config_file: Path = Path('proxy.yml')
-
-    def __init__(self):
-        print('Reading proxy config... ', end='')
-        proxy_config: dict[str, str | dict[str, str] | None]
-        with open(self.proxy_config_file, 'rt', encoding='utf8') as file:
-            proxy_config = yaml.load(file.read().encode('utf-8'), Loader=SafeLoader)
-        try:
-            self.type: str = proxy_config['type']
-        except KeyError:
-            exit_program(f'Proxy type not set in {self.proxy_config_file}')
-        self.pac_url: str | None = None
-        self.http_proxy: str | None = None
-        self.https_proxy: str | None = None
-        match self.type:
-            case 'direct':
-                pass
-            case 'pac':
-                try:
-                    self.pac_url = proxy_config['pac_url']
-                except KeyError:
-                    exit_program(f'Proxy pac_url not set in {self.proxy_config_file}')
-            case 'system':
-                pass
-            case 'manual':
-                try:
-                    proxy_config['proxies']
-                except KeyError:
-                    exit_program(colorize(f"Manual proxies are not set in {self.proxy_config_file}", Fore.RED))
-                try:
-                    self.https_proxy = proxy_config['proxies']['https']
-                except KeyError:
-                    exit_program(colorize(f"Manual HTTPS proxy is not set in {self.proxy_config_file}", Fore.RED))
-                try:
-                    self.http_proxy = proxy_config['proxies']['http']
-                except KeyError:
-                    exit_program(colorize(f"Manual HTTP proxy is not set in {self.proxy_config_file}", Fore.RED))
-            case _:
-                exit_program(colorize(f"Invalid proxy type [{self.type}] in {self.proxy_config_file}", Fore.RED))
-        print(colorize('OK', Fore.GREEN))
-
-    def unique_key(self) -> str:
-        match self.type:
-            case 'direct' | 'system':
-                return self.type
-            case 'pac':
-                return f'{self.type}-{hashlib.md5(self.pac_url).hexdigest()}'
-            case 'manual':
-                return f'{self.type}-{hashlib.md5(f"{self.https_proxy} {self.http_proxy}").hexdigest()}'
-            case _:
-                raise ValueError
-
-    def __str__(self):
-        match self.type:
-            case 'direct':
-                return 'Connexion directe à internet'
-            case 'pac':
-                return f'Configuration automatique (URL: {self.pac_url})'
-            case 'system':
-                return 'Utilisation de la configuration système de la machine'
-            case 'manual':
-                return f'Configuration manuelle (HTTPS: {self.https_proxy}, HTTP: {self.http_proxy})'
-            case _:
-                raise ValueError
 
 
 class WebClient:
@@ -97,15 +25,25 @@ class WebClient:
     @property
     def _session(self) -> PACSession:
         if self.__session is None:
-            proxy_config: ProxyConfig = ProxyConfig()
-            pac = get_pac(
-                url=proxy_config.pac_url,
-                from_os_settings=proxy_config.type == 'system',
-                proxies={
-                    'https': proxy_config.https_proxy,
-                    'http': proxy_config.http_proxy,
-                } if proxy_config.type == 'manual' else None
-            )
+            proxy_config: ProxyConfig = get_proxy_config()
+            if proxy_config.type == 'direct':
+                pac = get_pac()
+            elif proxy_config.type == 'system':
+                pac = get_pac(from_os_settings=True)
+            elif proxy_config.type == 'pac':
+                pac = get_pac(url=proxy_config.url)
+            else:  # if proxy_config.type == 'manual':
+                pac_content = (f'\n'
+                               f'function FindProxyForURL(url, host) {{\n'
+                               f'\tif (url.substring(0, 5) == "http:") {{\n'
+                               f'\t\treturn "PROXY {proxy_config.http_proxy}";\n'
+                               f"\t}}\n"
+                               f'\tif (url.substring(0, 6) == "https:") {{\n'
+                               f'\t\treturn "PROXY {proxy_config.https_proxy}";\n'
+                               f"\t}}\n"
+                               f'\treturn "DIRECT";\n'
+                               f"}}\n")
+                pac = get_pac(js=pac_content)
             self.__session = PACSession(pac)
         return self.__session
 

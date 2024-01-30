@@ -2,25 +2,15 @@ import time
 from pathlib import Path
 from sqlite3 import Error
 import sqlite3
-import yaml
-from yaml import SafeLoader
 from common import exit_program, colorize
 from colorama import Fore
 
 
 class Database:
 
-    database_config_file: Path = Path('database.yml')
-    default_database_file: Path = Path('ac_rennes_eple_filter.db')
-
     def __init__(self):
         print('Initializing database... ', end='')
-        self.file: Path = self.default_database_file
-        with open(self.database_config_file, 'rt', encoding='utf8') as file:
-            database_config: dict[str, str | int] = yaml.load(file.read().encode('utf-8'), Loader=SafeLoader)
-        if database_config is not None:
-            if 'file' in database_config:
-                self.file = Path(database_config['file'])
+        self.file: Path = Path('ac_rennes_eple_filter.db')
         self.__url: str = f"sqlite://{self.file}"
         self.__db = None
         self.__cursor = None

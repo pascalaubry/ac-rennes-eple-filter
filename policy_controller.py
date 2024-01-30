@@ -25,6 +25,7 @@ from common import colorize, VERSION, get_reports_dir
 from database import Database
 from html_renderer import HTMLRenderer
 from policy import Policy
+from proxy import get_proxy_config
 from web_client import WebClient, ProxyConfig
 
 
@@ -79,7 +80,7 @@ class WebResult:
         parsed_url: ParseResult = urlparse(url)
         self.url_protocol = parsed_url.scheme
         self.url_domain = parsed_url.netloc
-        cache_dir: Path = Path('.') / 'cache' / 'control' / profile / ProxyConfig().unique_key()
+        cache_dir: Path = Path('.') / 'cache' / 'control' / profile / get_proxy_config().id
         cache_dir.mkdir(parents=True, exist_ok=True)
         info_cache_file = cache_dir / f'{self.url_protocol}_{self.url_domain}.info'
         content_cache_file = cache_dir / f'{self.url_protocol}_{self.url_domain}.html'
@@ -171,11 +172,17 @@ class WebResult:
 
     def __analyse_response(self):
         # print(f"code={response.status_code} ", end='')
-        if (self.final_url.startswith('http://articatech.net/block.html')
-                or self.final_url.startswith('https://articatech.net/block.html')):
-            print(colorize(f'Blocked by Artica ', Fore.YELLOW), end=' ')
-            self.status = ResultStatus.Denied
-            return
+        if self.final_url:
+            if (self.final_url.startswith('http://articatech.net/block.html')
+                    or self.final_url.startswith('https://articatech.net/block.html')):
+                print(colorize(f'Blocked by Artica ', Fore.YELLOW), end=' ')
+                self.status = ResultStatus.Denied
+                return
+            parsed_url: ParseResult = urlparse(self.final_url)
+            if parsed_url.path == '/php/urlblock.php':
+                print(colorize(f'Blocked by Palo Alto (urlblock.php)', Fore.YELLOW), end=' ')
+                self.status = ResultStatus.Denied
+                return
         if 'X-Squid-Error' in self.response_headers:
             if self.response_headers['X-Squid-Error'].startswith('ERR_ACCESS_DENIED'):
                 print(colorize(f'Denied by Squid ', Fore.YELLOW), end=' ')
@@ -189,9 +196,13 @@ class WebResult:
                 print(colorize(f'Connect failed ', Fore.YELLOW), end=' ')
                 self.status = ResultStatus.ConnectError
                 return
-            else:
-                print(colorize(
-                    f"Unknown X-Squid-Error=[{self.response_headers['X-Squid-Error']}] ", Fore.YELLOW), end='')
+            if self.response_headers['X-Squid-Error'].startswith('ERR_CACHE_ACCESS_DENIED'):
+                print(colorize(f'Connect failed ', Fore.YELLOW), end=' ')
+                self.status = ResultStatus.ConnectError
+                print(self.response_content)
+                return
+            print(colorize(
+                f"Unknown X-Squid-Error=[{self.response_headers['X-Squid-Error']}] ", Fore.YELLOW), end='')
         if self.response_code == 499:
             print(colorize(f'Blocked by antivirus ', Fore.YELLOW), end='')
             self.status = ResultStatus.Denied
@@ -199,6 +210,10 @@ class WebResult:
         response_lines: list[str] = self.response_content.splitlines() if self.response_content else []
         one_line_content: str = ' '.join(response_lines)
         if self.response_code == 503:
+            if re.match('.*<meta http-equiv="refresh" content="0; url=[^"]+">.*', one_line_content):
+                print(colorize(f'Blocked by Palo Alto (http-equiv) ', Fore.YELLOW), end='')
+                self.status = ResultStatus.Denied
+                return
             if re.match(r'.*<!-- ERR_DNS_FAIL -->.*', one_line_content):
                 print(colorize(f'ERR_DNS_FAIL ', Fore.YELLOW), end='')
                 self.status = ResultStatus.DnsError
@@ -356,9 +371,16 @@ class PolicyController:
             self.public_ip = web.get(
                 ip_url, follow_redirect=True, code_200_needed=True, verify=False
             )[0].content.decode('utf8')
-            self.public_hostname = socket.gethostbyaddr(self.public_ip)[0]
-        except ConnectionError:
-            print(colorize(f'could not reach {ip_url} ', Fore.YELLOW), end='')
+            if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', self.public_ip):
+                print(colorize(self.public_ip.splitlines()[0], Fore.YELLOW), end='')
+                self.public_ip = ''
+            else:
+                self.public_hostname = socket.gethostbyaddr(self.public_ip)[0]
+        except ConnectionError as ce:
+            print(colorize(f'could not reach {ip_url} ({ce.__class__.__name__})', Fore.YELLOW), end='')
+            pass
+        except DNSException as de:
+            print(colorize(f'could not reach {ip_url} ({de.__class__.__name__})', Fore.YELLOW), end='')
             pass
         except socket.herror:
             pass
@@ -383,10 +405,10 @@ class PolicyController:
         if not self.policy_expected_results_file.is_file():
             print(colorize(f'file not found.', Fore.YELLOW))
             self.__build_policy_expected_results_file()
-        elif self.policy_expected_results_file.lstat().st_mtime > time.time() - 2 * 24 * 3600:
+        elif self.policy_expected_results_file.lstat().st_mtime > time.time() - 7 * 24 * 3600:
             print(colorize(f'up to date.', Fore.GREEN))
         else:
-            print(colorize(f'obsolete.', Fore.GREEN))
+            print(colorize(f'obsolete.', Fore.YELLOW))
             self.__build_policy_expected_results_file()
         if not self.policy_expected_results_file.exists():
             print(colorize(f'File {self.policy_expected_results_file} not found, aborting.', Fore.RED))
@@ -621,13 +643,14 @@ class PolicyController:
 
     def print(self):
         date: str = datetime.now().strftime("%Y%m%d")
+        proxy_config: ProxyConfig = get_proxy_config()
         html_file: Path = (get_reports_dir()
                            / f'control-{VERSION}-{self.profile.upper()}'
-                             f'-{self.public_ip}-{date}-{ProxyConfig().type}.html')
+                             f'-{self.public_ip}-{date}-{proxy_config.id}.html')
         HTMLRenderer().render(
             'control.html',
             {
                 'controller': self,
-                'proxy_config': ProxyConfig(),
+                'proxy_config': proxy_config,
             },
             html_file)
