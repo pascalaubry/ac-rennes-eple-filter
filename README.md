@@ -298,10 +298,11 @@ Your choice:
 
 | Date             | Version | Auteur·ice   | Modifications                                                                                                                    |
 |------------------|---------|--------------|----------------------------------------------------------------------------------------------------------------------------------|
+| 29 février 2024  | 1.9     | Pascal AUBRY | Amélioration de la lisibilité des rapports de conformité                                                                         |
 | 30 janvier 2024  | 1.8     | Pascal AUBRY | Détection du filtrage Trend<br/>Amélioration de la configuration des proxies                                                     |
 | 12 janvier 2024  | 1.7     | Pascal AUBRY | Correction d'un bug WHOIS<br/>Prise en charge du filtrage Stormshield de l'Académie<br/>Prise en charge du filtrage Squid du SIB |
 | 20 décembre 2023 | 1.6     | Pascal AUBRY | Prise en charge du filtrage Artica du SIB                                                                                        |
-| 10 octobre 2023  | 1.5     | Pascal AUBRY | Stockage DB2                                                                                                                     |
+| 10 octobre 2023  | 1.5     | Pascal AUBRY | Stockage SQLite                                                                                                                  |
 | 21 mars 2023     | 1.4     | Pascal AUBRY | Ajout du fichier de configuration proxy.yml                                                                                      |
 | 13 décembre 2022 | 1.3     | Pascal AUBRY | Optimisation des téléchargements                                                                                                 |
 | 9 décembre 2022  | 1.2     | Pascal AUBRY | Amélioration de la gestion des erreurs                                                                                           |

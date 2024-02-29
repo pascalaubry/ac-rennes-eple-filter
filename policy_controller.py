@@ -1,3 +1,4 @@
+import io
 import json
 from contextlib import suppress
 
@@ -19,6 +20,9 @@ from dns.exception import DNSException
 from requests import Response
 from requests.exceptions import SSLError, ProxyError, ConnectionError
 from whois.parser import PywhoisError
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 from domain_checker import DomainChecker, PolicyResult
 from common import colorize, VERSION, get_reports_dir
@@ -415,10 +419,17 @@ class PolicyController:
         self.policy_expected_results_file: Path = Path('ac_rennes_eple_filter_expected_results.json')
         self.policy_expected_results: dict[str, PolicyResult] = {}
         self.web_results: dict[str, WebResult] = {}
+        """
         self.error_urls: list[str] = []
         self.compliant_urls: list[str] = []
         self.too_strict_urls: list[str] = []
         self.too_permissive_urls: list[str] = []
+        """
+        self.error_nb: int = 0
+        self.too_strict_nb: int = 0
+        self.too_permissive_nb: int = 0
+        self.compliant_allowed_nb: int = 0
+        self.compliant_denied_nb: int = 0
         if self.__read_policy_expected_results():
             self.__test_urls(web, profile)
 
@@ -612,27 +623,27 @@ class PolicyController:
                 match self.web_results[url].status:
                     case ResultStatus.SslError | ResultStatus.DnsError | ResultStatus.ConnectError:
                         print(colorize(f'{self.web_results[url].status}', Fore.YELLOW), end='')
-                        self.error_urls.append(url)
+                        self.error_nb += 1
                     case ResultStatus.NotAuthenticated:
                         print(colorize(f'{self.web_results[url].status}', Fore.YELLOW), end='')
-                        self.error_urls.append(url)
+                        self.error_nb += 1
                     case ResultStatus.Allowed:
                         print(f'{self.web_results[url].status} ', end='')
                         self.web_results[url].set_compliant(self.policy_expected_results[domain].allowed)
                         if self.web_results[url].compliant:
-                            self.compliant_urls.append(url)
+                            self.compliant_allowed_nb += 1
                             print(colorize('OK', Fore.GREEN), end='')
                         else:
-                            self.too_permissive_urls.append(url)
+                            self.too_permissive_nb += 1
                             print(colorize('too permissive', Fore.RED), end='')
                     case ResultStatus.Denied:
                         print(f'{self.web_results[url].status} ', end='')
                         self.web_results[url].set_compliant(not self.policy_expected_results[domain].allowed)
                         if self.web_results[url].compliant:
-                            self.compliant_urls.append(url)
+                            self.compliant_denied_nb += 1
                             print(colorize('OK', Fore.GREEN), end='')
                         else:
-                            self.too_strict_urls.append(url)
+                            self.too_strict_nb += 1
                             print(colorize('too strict', Fore.RED), end='')
                 print(f' ({time.time() - item_start:.2f})')
         time_spent: int = math.ceil(time.time() - start)
@@ -643,29 +654,59 @@ class PolicyController:
         return len(self.web_results.keys())
 
     @property
-    def error_nb(self) -> int:
-        return len(self.error_urls)
-
-    @property
-    def too_strict_nb(self) -> int:
-        return len(self.too_strict_urls)
-
-    @property
-    def too_permissive_nb(self) -> int:
-        return len(self.too_permissive_urls)
-
-    @property
     def not_compliant_nb(self) -> int:
-        return len(self.too_strict_urls) + len(self.too_permissive_urls)
+        return self.too_strict_nb + self.too_permissive_nb
 
     @property
     def compliant_nb(self) -> int:
-        return len(self.compliant_urls)
+        return self.compliant_allowed_nb + self.compliant_denied_nb
 
     @property
     def compliance_str(self) -> str:
         total_nb: int = self.compliant_nb + self.too_strict_nb + self.too_permissive_nb
         return '-' if total_nb == 0 else f'{self.compliant_nb / total_nb * 100:.0f}%'
+
+    @property
+    def svg(self) -> str:
+        entries: list[dict[str, int | str]] = [
+            {
+                'name': 'Conforme (autorisé)',
+                'value': self.compliant_allowed_nb,
+                'color': '#d1e7dd',
+            },
+            {
+                'name': 'Conforme (interdit)',
+                'value': self.compliant_denied_nb,
+                'color': '#d1e7dd',
+            },
+            {
+                'name': 'Erreur',
+                'value': self.error_nb,
+                'color': '#fff3cd',
+            },
+            {
+                'name': 'Trop permissif',
+                'value': self.too_permissive_nb,
+                'color': '#f8d7da',
+            },
+            {
+                'name': 'Trop strict',
+                'value': self.too_strict_nb,
+                'color': '#f8d7da',
+            },
+        ]
+        values: list[int] = []
+        labels: list[str] = []
+        colors: list[str] = []
+        for entry in entries:
+            if entry['value']:
+                values.append(entry['value'])
+                labels.append(entry['name'])
+                colors.append(entry['color'])
+        plt.pie(np.array(values), labels=labels, startangle=90, explode=[0.2] * len(values), shadow=True, colors=colors)
+        f = io.BytesIO()
+        plt.savefig(f, format='svg')
+        return f.getvalue().decode()
 
     def print(self):
         date: str = datetime.now().strftime("%Y%m%d")

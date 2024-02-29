@@ -1,11 +1,13 @@
-import bz2
 from pathlib import Path
 
 from PIL import Image
 import base64
 from io import BytesIO
 
-input_logo: str = 'logo-1024x991.png'
+# input_logo: str = 'ac-rennes-1024x991.png'
+# input_format: str = 'png'
+input_logo: str = 'ac-rennes-dsii-341x341.jpg'
+input_format: str = 'jpeg'
 new_width: int = 200
 output_file = 'logo.css'
 
@@ -15,7 +17,7 @@ height = image.size[1]
 new_height: int = int(new_width * height / width)
 image = image.resize((new_width, new_height))
 buffered = BytesIO()
-image.save(buffered, format='png', optimize=True, quality=95)
+image.save(buffered, format=input_format, optimize=True, quality=95)
 base64_image = base64.b64encode(buffered.getvalue())
 
 with open(output_file, 'wt') as f:
@@ -27,7 +29,7 @@ with open(output_file, 'wt') as f:
         f'*/\n'
         f'\n'
         f'body {{\n'
-        f'\tbackground-image: url("data:image/png;base64,{base64_image.decode("utf-8")}");\n'
+        f'\tbackground-image: url("data:image/{input_format};base64,{base64_image.decode("utf-8")}");\n'
         f'\tbackground-attachment: fixed;\n'
         f'\tbackground-position: right top;\n'
         f'\tbackground-repeat:no-repeat;\n'

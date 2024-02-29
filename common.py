@@ -6,7 +6,7 @@ from colorama import Style
 from django.template.defaulttags import register
 
 
-VERSION: str = '1.8.0'
+VERSION: str = '1.9.0'
 COPYRIGHT: str = '2022-2024 Région académique Bretagne'
 PATH: Path = Path(__file__).parents[0].resolve()
 
