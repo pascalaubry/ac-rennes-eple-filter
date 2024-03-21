@@ -194,6 +194,10 @@ class WebResult:
                 print(colorize(f'Blocked by Palo Alto (urlblock.php)', Fore.YELLOW), end=' ')
                 self.status = ResultStatus.Denied
                 return
+            if parsed_url.netloc.endswith('sib.fr') and parsed_url.path == '/captive-portal':
+                print(colorize(f'Blocked by Squid ', Fore.YELLOW), end=' ')
+                self.status = ResultStatus.Denied
+                return
 
         if 'X-Squid-Error' in self.response_headers:
             if self.response_headers['X-Squid-Error'].startswith('ERR_ACCESS_DENIED'):
