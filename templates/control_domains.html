@@ -32,7 +32,16 @@
                         {% if final_url and url != final_url %}&gt; <a href="{{ final_url }}" target="_blank">{{ web_result.simplified_final_url }}</a>{% endif %}
                     </td>
                     <td class="result">
-                        <span class="{% if web_result.error %}error{% else %}{% if web_result.compliant %}{% else %}not-compliant{% endif %}{% endif %}">
+                        <span class="
+                            {% if web_result.error %}
+                                error
+                            {% else %}
+                                {% if web_result.compliant %}
+                                    compliant
+                                {% else %}
+                                    not-compliant
+                                {% endif %}
+                            {% endif %} text">
                             {{ web_result.status.report_str }}
                             {% if web_result.matching_domain or web_result.matching_category %}
                                 ({{ web_result.matching_domain }}@{{ web_result.matching_category }})
@@ -41,10 +50,15 @@
                     </td>
                     <td class="expected_result">
                         <span class="
-                            {% if web_result.error or web_result.compliant %}
+                            {% if web_result.error %}
+                                error
                             {% else %}
-                                not-compliant
-                            {% endif %}">
+                                {% if web_result.compliant %}
+                                    compliant
+                                {% else %}
+                                    not-compliant
+                                {% endif %}
+                            {% endif %} text">
                         {% if policy_expected_result.allowed %}
                             Autorisée
                         {% else %}
@@ -55,16 +69,18 @@
                     </td>
                     <td class="compliance">
                         {% if web_result.error %}
-                            <span class="error">Inconnue</span>
+                            <span class="error text">Inconnue</span>
                         {% else %}
                             {% if web_result.compliant %}
-                                <span class="compliant">OK</span>
+                                <span class="compliant text">OK</span>
                             {% else %}
-                                {% if web_result.allowed %}
-                                    <span class="too-permissive">Trop permissive</span>
-                                {% else %}
-                                    <span class="too-strict">Trop stricte</span>
-                                {% endif %}
+                                <span class="not-compliant text">
+                                    {% if web_result.allowed %}
+                                        Trop permissive
+                                    {% else %}
+                                        Trop stricte
+                                    {% endif %}
+                                </span>
                             {% endif %}
                         {% endif %}
                     </td>

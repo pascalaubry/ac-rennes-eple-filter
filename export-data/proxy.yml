@@ -4,12 +4,16 @@ system:
 direct:
   type: direct
   name: connexion directe à internet
-manual-example:
+artica-35:
   type: manual
-  name: My proxy
-  http: squid.domain:3128
-  https: squid.domain:3128
-pac-example:
+  name: Artica collèges 35
+  http: educ-cd35-lbprx.colleges35.local:3128
+  https: educ-cd35-lbprx.colleges35.local:3128
+squid-56:
+  type: manual
+  name: Squid collèges 56
+  http: proxy02.cd56.education.sib.fr:3128
+  https: proxy02.cd56.education.sib.fr:3128
+rectorat:
   type: pac
-  name: PAC
-  url: https://host.domain/proxy.pac
+  url: http://proxy.in.ac-rennes.fr/proxy.pac

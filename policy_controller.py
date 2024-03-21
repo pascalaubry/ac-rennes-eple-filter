@@ -1,6 +1,5 @@
 import io
 import json
-from contextlib import suppress
 
 import math
 import random
@@ -22,6 +21,8 @@ from requests.exceptions import SSLError, ProxyError, ConnectionError
 from whois.parser import PywhoisError
 
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('svg')
 import numpy as np
 
 from domain_checker import DomainChecker, PolicyResult
@@ -105,8 +106,7 @@ class WebResult:
                 print('cached ', end='')
                 with open(info_cache_file, 'r') as f:
                     data = json.load(f)
-                    with suppress(KeyError):
-                        self.status = ResultStatus(data['status'])
+                    self.status = ResultStatus(data['status'])
                     self.final_url = data['final_url']
                     self.matching_domain = data['matching_domain']
                     self.matching_category = data['matching_category']
@@ -140,15 +140,17 @@ class WebResult:
         if self.status is None:
             self.__analyse_response()
         with open(info_cache_file, 'w') as f:
-            data = {}
-            if self.error:
-                data['status'] = self.status
-            data['final_url'] = self.final_url
-            data['response_code'] = self.response_code
-            data['matching_category'] = self.matching_category
-            data['matching_domain'] = self.matching_domain
-            data['response_headers'] = self.response_headers
-            json.dump(data, f)
+            data = {
+
+            }
+            json.dump({
+                'status': self.status,
+                'final_url': self.final_url,
+                'response_code': self.response_code,
+                'matching_category': self.matching_category,
+                'matching_domain': self.matching_domain,
+                'response_headers': self.response_headers,
+            }, f)
         if self.response_content:
             with open(content_cache_file, 'wb') as f:
                 f.write(self.response_content.encode('utf-8'))
@@ -192,6 +194,7 @@ class WebResult:
                 print(colorize(f'Blocked by Palo Alto (urlblock.php)', Fore.YELLOW), end=' ')
                 self.status = ResultStatus.Denied
                 return
+
         if 'X-Squid-Error' in self.response_headers:
             if self.response_headers['X-Squid-Error'].startswith('ERR_ACCESS_DENIED'):
                 print(colorize(f'Denied by Squid ', Fore.YELLOW), end=' ')

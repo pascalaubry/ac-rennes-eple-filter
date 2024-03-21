@@ -9,16 +9,16 @@
         .table-informations, .table-summary, .table-tests {
             width: auto;
         }
-        .compliant.text, .compliant.text, .compliant.text, .compliant.value, .compliant.value, .compliant.value {
+        .compliant.text, .compliant.value {
             color: green;
         }
         .error.text, .error.value {
             color: orange;
         }
-        .not-compliant.text, .too-permissive.text, .too-strict.text, .not-compliant.value, .too-permissive.value, .too-strict.value {
+        .not-compliant.text, .not-compliant.value {
             color: red;
         }
-        .compliant-allowed.text, .compliant-denied.text, .too-permissive.text, .too-strict.text {
+        .allowed.text, .denied.text, .too-permissive.text, .too-strict.text {
             padding-left: 2em;
         }
         .compliant, .error, .not-compliant {
@@ -92,20 +92,20 @@
                         <td class="compliant allowed value">{{ controller.compliant_allowed_nb }}</td>
                     </tr>
                     <tr class="table-success">
-                        <td class="compliant-denied text">Sites interdits</td>
-                        <td class="compliant-denied value">{{ controller.compliant_denied_nb }}</td>
+                        <td class="compliant denied text">Sites interdits</td>
+                        <td class="compliant denied value">{{ controller.compliant_denied_nb }}</td>
                     </tr>
                     <tr class="table-danger">
                         <td class="not-compliant text">Non-conformité</td>
                         <td class="not-compliant value">{{ controller.not_compliant_nb }}</td>
                     </tr>
                     <tr class="table-danger">
-                        <td class="too-permissive text">Non-conformité (mise en œuvre trop permissive)</td>
-                        <td class="too-permissive value">{{ controller.too_permissive_nb }}</td>
+                        <td class="not-compliant too-permissive text">Mise en œuvre trop permissive</td>
+                        <td class="not-compliant too-permissive value">{{ controller.too_permissive_nb }}</td>
                     </tr>
                     <tr class="table-danger">
-                        <td class="too-strict text">Non-conformité (mise en œuvre trop stricte)</td>
-                        <td class="too-strict value">{{ controller.too_strict_nb }}</td>
+                        <td class="not-compliant too-strict text">Mise en œuvre trop stricte</td>
+                        <td class="not-compliant too-strict value">{{ controller.too_strict_nb }}</td>
                     </tr>
                     <tr class="table-warning">
                         <td><span class="error text">Erreurs d'accès</span></td>
