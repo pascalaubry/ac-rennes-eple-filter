@@ -22,7 +22,6 @@ from whois.parser import PywhoisError
 
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('svg')
 import numpy as np
 
 from domain_checker import DomainChecker, PolicyResult
@@ -32,6 +31,9 @@ from html_renderer import HTMLRenderer
 from policy import Policy
 from proxy import get_proxy_config
 from web_client import WebClient, ProxyConfig
+
+# Force PyInstaller to add the corresponding hook
+matplotlib.use('svg')
 
 
 class ResultStatus(IntEnum):
@@ -140,9 +142,6 @@ class WebResult:
         if self.status is None:
             self.__analyse_response()
         with open(info_cache_file, 'w') as f:
-            data = {
-
-            }
             json.dump({
                 'status': self.status,
                 'final_url': self.final_url,
@@ -677,27 +676,32 @@ class PolicyController:
     def svg(self) -> str:
         entries: list[dict[str, int | str]] = [
             {
-                'name': 'Conforme (autorisé)',
+                'name': f'Conforme (autorisé) : {self.compliant_allowed_nb} '
+                        f'({round(self.compliant_allowed_nb / self.test_nb * 100)}%)',
                 'value': self.compliant_allowed_nb,
                 'color': '#d1e7dd',
             },
             {
-                'name': 'Conforme (interdit)',
+                'name': f'Conforme (interdit) : {self.compliant_denied_nb} '
+                        f'({round(self.compliant_denied_nb / self.test_nb * 100)}%)',
                 'value': self.compliant_denied_nb,
                 'color': '#d1e7dd',
             },
             {
-                'name': 'Erreur',
+                'name': f'Erreur : {self.error_nb} '
+                        f'({round(self.error_nb / self.test_nb * 100)}%)',
                 'value': self.error_nb,
                 'color': '#fff3cd',
             },
             {
-                'name': 'Trop permissif',
+                'name': f'Trop permissif : {self.too_permissive_nb} '
+                        f'({round(self.too_permissive_nb / self.test_nb * 100)}%)',
                 'value': self.too_permissive_nb,
                 'color': '#f8d7da',
             },
             {
-                'name': 'Trop strict',
+                'name': f'Trop strict : {self.too_strict_nb} '
+                        f'({round(self.too_strict_nb / self.test_nb * 100)}%)',
                 'value': self.too_strict_nb,
                 'color': '#f8d7da',
             },
