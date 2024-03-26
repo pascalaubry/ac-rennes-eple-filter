@@ -422,15 +422,9 @@ class PolicyController:
             print(f'\nPublic IP:  {self.public_ip}')
         else:
             print(f'\nPublic IP:  {self.public_ip} ({self.public_hostname})')
-        self.policy_expected_results_file: Path = Path('ac_rennes_eple_filter_expected_results.json')
+        self.policy_expected_results_file: Path = Path(f'ac_rennes_eple_filter_expected_results-{VERSION}.json')
         self.policy_expected_results: dict[str, PolicyResult] = {}
         self.web_results: dict[str, WebResult] = {}
-        """
-        self.error_urls: list[str] = []
-        self.compliant_urls: list[str] = []
-        self.too_strict_urls: list[str] = []
-        self.too_permissive_urls: list[str] = []
-        """
         self.error_nb: int = 0
         self.too_strict_nb: int = 0
         self.too_permissive_nb: int = 0

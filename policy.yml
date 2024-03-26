@@ -157,6 +157,11 @@ rules:
     auth:
       all: deny
   -
+    category: tricheur_pix
+    description: Sites bloqués lors des examens PIX en FRANCE uniquement
+    auth:
+      all: deny
+  -
     category: vpn
     description: Sites de contournement du filtrage à l’aide de VPNs
     auth:
