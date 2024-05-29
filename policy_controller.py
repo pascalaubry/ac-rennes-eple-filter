@@ -185,7 +185,7 @@ class WebResult:
         if self.final_url:
             if (self.final_url.startswith('http://articatech.net/block.html')
                     or self.final_url.startswith('https://articatech.net/block.html')):
-                print(colorize(f'Blocked by Artica ', Fore.YELLOW), end=' ')
+                print(colorize(f'Blocked by Artica (redirected to articatech.net) ', Fore.YELLOW), end=' ')
                 self.status = ResultStatus.Denied
                 return
             parsed_url: ParseResult = urlparse(self.final_url)
@@ -194,7 +194,11 @@ class WebResult:
                 self.status = ResultStatus.Denied
                 return
             if parsed_url.netloc.endswith('sib.fr') and parsed_url.path == '/captive-portal':
-                print(colorize(f'Blocked by Squid ', Fore.YELLOW), end=' ')
+                print(colorize(f'Blocked by Squid (redirected to sib.fr/captive-portal) ', Fore.YELLOW), end=' ')
+                self.status = ResultStatus.Denied
+                return
+            if parsed_url.netloc.endswith('google.fr'):
+                print(colorize(f'Blocked (redirected to google.fr) ', Fore.YELLOW), end=' ')
                 self.status = ResultStatus.Denied
                 return
 

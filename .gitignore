@@ -162,7 +162,9 @@ cython_debug/
 /export/
 /.idea/
 /ac_rennes_eple_filter.db
+/ac_rennes_eple_filter_expected_results.json
 /ac_rennes_eple_filter_expected_results-*.json
 /cache/
 /reports/
+/TODO
 proxy.yml
