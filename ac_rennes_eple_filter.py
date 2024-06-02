@@ -19,8 +19,6 @@ from web_client import WebClient
 
 class Filter:
 
-    expected_results_file: Path = Path('ac_rennes_eple_filter_expected_results.json')
-
     def __init__(self, database: Database, policy: Policy, update_database_if_needed: bool = False):
         self.__database: Database = database
         self.__policy: Policy = policy

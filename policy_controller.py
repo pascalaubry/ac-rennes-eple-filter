@@ -471,6 +471,12 @@ class PolicyController:
         except PywhoisError as pwe:
             print(colorize(f'PywhoisError={str(pwe).splitlines(keepends=False)[0]} ', Fore.BLUE), end='')
             return False
+        except ConnectionResetError as cre:
+            print(colorize(f'WhoIs ConnectionResetError ', Fore.RED), end='')
+            return False
+        except PermissionError as pe:
+            print(colorize(f'WhoIs PermissionError ', Fore.RED), end='')
+            return False
         try:
             whois_domain = whois_response["domain_name"]
         except KeyError:
@@ -491,21 +497,6 @@ class PolicyController:
         return True
 
     def __get_test_domains(self) -> list[str]:
-        """return [
-            'toutatice.fr',
-            'u-bordeaux.fr',
-            'www.ac-rennes.fr',
-            'ip-stresser-xbox.hdxba.com',
-            'ddlddl.free.fr',
-            'selectivesearch-inc.com',
-            'yalho.com',
-            'app-analytics.snapchat.com',
-            'xnore.com',
-            'blade24.lisbon-rack405.nodes.gen4.ninja',
-            'blade2.vienna-rack452.nodes.gen4.ninja',
-            'world.wemineltc.com',
-            'dvdplayer.de',
-        ][:3]"""
         categories: dict[str, dict[str, str | int]] = {}
         self.database.execute('SELECT origin, category, COUNT(id) FROM data GROUP BY origin, category')
         for result in self.database.fetchall():
@@ -514,60 +505,80 @@ class PolicyController:
                 'domains_number': result[2],
             }
         domains: list[str] = []
-        random.seed()
-        for rule in self.policy.active_rules:  # + self.policy.inactive_rules:
-            if rule.category in categories:
-                category_domains: int = 0
-                if categories[rule.category]['origin'] == 'rennes':
-                    domain_per_category: int = 20
-                    print(f'Adding last {domain_per_category} domains of category {rule.category}... ', end='')
-                    self.database.execute(
-                        'SELECT domain FROM data WHERE category = ? ORDER BY id DESC LIMIT ?',
-                        (rule.category, domain_per_category * 3))
-                    for result in self.database.fetchall():
-                        domain: str = result[0]
-                        if self.__test_whois_dns(domain):
-                            domains.append(domain := result[0])
-                            category_domains += 1
-                            print(f'{domain} ({category_domains}) ', end='')
-                            if category_domains == domain_per_category:
-                                break
-                        else:
-                            print(colorize(f'{domain} ', Fore.YELLOW), end='')
-                else:
-                    domain_per_category: int = 5
-                    print(f'Picking last {domain_per_category} domains of category {rule.category}... ', end='')
-                    self.database.execute(
-                        'SELECT domain FROM data WHERE category = ? ORDER BY id DESC LIMIT 1',
-                        (rule.category, ))
-                    domain: str = self.database.fetchone()[0]
-                    if self.__test_whois_dns(domain):
-                        domains.append(domain)
-                        category_domains += 1
-                        print(f'{domain} ({category_domains}) ', end='')
-                    else:
-                        print(colorize(f'{domain} ', Fore.YELLOW), end='')
-                    for i in range(3 * domain_per_category - 1):
+        known_domain: str = 'ac-rennes.fr'
+        print(f'Testing WhoIs connection on trusted domain {known_domain}... ', end='')
+        if not self.__test_whois_dns(known_domain):
+            print(colorize('Please check access to port 43 (WhoIs).', Fore.RED))
+        else:
+            print(colorize('OK', Fore.GREEN))
+            random.seed()
+            for rule in self.policy.active_rules:  # + self.policy.inactive_rules:
+                if rule.category in categories:
+                    category_domains: int = 0
+                    if categories[rule.category]['origin'] == 'rennes':
+                        domains_per_category: int = 20
+                        print(f'Adding last {domains_per_category} domains of category {rule.category}... ', end='')
                         self.database.execute(
-                            'SELECT domain FROM data WHERE category = ? ORDER BY id DESC LIMIT ?, ?',
-                            (rule.category, random.randrange(0, categories[rule.category]['domains_number']), 1))
-                        domain: str = self.database.fetchone()[0]
-                        if self.__test_whois_dns(domain):
-                            domains.append(domain)
-                            category_domains += 1
-                            print(f'{domain} ({category_domains}) ', end='')
-                            if category_domains == domain_per_category:
-                                break
-                        else:
-                            print(colorize(f'{domain} ', Fore.YELLOW), end='')
-                print(f'')
-            else:
-                print(f'Category {rule.category} not found in database.')
+                            'SELECT domain FROM data WHERE category = ? ORDER BY id DESC LIMIT ?',
+                            (rule.category, domains_per_category * 3))
+                        for result in self.database.fetchall():
+                            domain: str = result[0]
+                            if self.__test_whois_dns(domain):
+                                domains.append(domain := result[0])
+                                category_domains += 1
+                                print(f'{domain} ({category_domains}) ', end='')
+                                if category_domains == domains_per_category:
+                                    break
+                            else:
+                                print(colorize(f'{domain} ', Fore.YELLOW), end='')
+                    else:
+                        domains_per_category: int = 5
+                        print(f'Picking {domains_per_category} last domains of category {rule.category}... ', end='')
+                        self.database.execute(
+                            'SELECT domain FROM data WHERE category = ? ORDER BY id DESC LIMIT ?',
+                            (rule.category, domains_per_category, ))
+                        for row in self.database.fetchall():
+                            domain: str = row[0]
+                            if self.__test_whois_dns(domain):
+                                domains.append(domain)
+                                category_domains += 1
+                                print(f'{domain} ({category_domains}) ', end='')
+                            else:
+                                print(colorize(f'{domain} ', Fore.YELLOW), end='')
+                        if categories[rule.category]['domains_number'] > domains_per_category:
+                            print('')
+                            print(
+                                f'Picking {domains_per_category} random domains of category {rule.category}... ',
+                                end='')
+                            for i in range(3 * domains_per_category - 1):
+                                self.database.execute(
+                                    'SELECT domain FROM data WHERE category = ? ORDER BY id DESC LIMIT ?, ?',
+                                    (
+                                        rule.category,
+                                        random.randrange(
+                                            domains_per_category, categories[rule.category]['domains_number']),
+                                        1))
+                                domain: str = self.database.fetchone()[0]
+                                if self.__test_whois_dns(domain):
+                                    domains.append(domain)
+                                    category_domains += 1
+                                    print(f'{domain} ({category_domains}) ', end='')
+                                    if category_domains == 2 * domains_per_category:
+                                        break
+                                else:
+                                    print(colorize(f'{domain} ', Fore.YELLOW), end='')
+                    print('')
+                else:
+                    print(f'Category {rule.category} not found in database.')
         return domains
 
     def __build_policy_expected_results_file(self):
         print(f'Building policy expected results...')
         domains: list[str] = self.__get_test_domains()
+        if not domains:
+            print(colorize(
+                'No domain retrieved to build expected results, please check access to port 43 (WhoIs).', Fore.RED))
+            return
         expected_results_dict: dict[str, dict[str, dict[str, bool | str]]] = {}
         for profile in Policy.profiles:
             expected_results_dict[profile] = {}
@@ -718,15 +729,16 @@ class PolicyController:
         return f.getvalue().decode()
 
     def print(self):
-        date: str = datetime.now().strftime("%Y%m%d")
-        proxy_config: ProxyConfig = get_proxy_config()
-        html_file: Path = (get_reports_dir()
-                           / f'control-{VERSION}-{self.profile.upper()}'
-                             f'-{self.public_ip}-{date}-{proxy_config.id}.html')
-        HTMLRenderer().render(
-            'control.html',
-            {
-                'controller': self,
-                'proxy_config': proxy_config,
-            },
-            html_file)
+        if self.web_results:
+            date: str = datetime.now().strftime("%Y%m%d")
+            proxy_config: ProxyConfig = get_proxy_config()
+            html_file: Path = (get_reports_dir()
+                               / f'control-{VERSION}-{self.profile.upper()}'
+                                 f'-{self.public_ip}-{date}-{proxy_config.id}.html')
+            HTMLRenderer().render(
+                'control.html',
+                {
+                    'controller': self,
+                    'proxy_config': proxy_config,
+                },
+                html_file)
