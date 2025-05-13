@@ -1,13 +1,15 @@
+import importlib.metadata
 from pathlib import Path
 
 import sys
 from colorama import Style
 
 from django.template.defaulttags import register
+from packaging.version import Version
 
-
-VERSION: str = '1.9.6'
-COPYRIGHT: str = '2022-2024 Région académique Bretagne'
+APP_NAME: str = 'ac-rennes-eple-filter'
+VERSION: Version = Version(importlib.metadata.version(APP_NAME))
+COPYRIGHT: str = '2022-2025 Région académique Bretagne'
 PATH: Path = Path(__file__).parents[0].resolve()
 
 

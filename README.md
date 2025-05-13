@@ -50,7 +50,7 @@ Les configurations de proxy utilisables pour les téléchargements sont indiqué
 ### Syntaxe (`--help`)
 
 ```
-$> ac-rennes-eple-filter x.y.z Copyright (c) 2022-2024 Région académique Bretagne
+$> ac-rennes-eple-filter x.y.z Copyright (c) 2022-2025 Région académique Bretagne
 usage: ac_rennes_eple_filter.py [-h] [--update] [--policy] [--check URLS]
                                 [--search PATTERN] [--control PROFILE]
                                 [--optimize]
@@ -179,8 +179,7 @@ Le paramètre de l'option `--control` permet d'indiquer le profil de l'utilisate
 
 ```
 $> ac_rennes_eple_filter-x.y.exe --control per
-ac-rennes-eple-filter x.y Copyright (c) 2022-2023 Région académique Bretagne
-ac-rennes-eple-filter x.y.z Copyright (c) 2022-2024 Région académique Bretagne
+ac-rennes-eple-filter x.y.z Copyright (c) 2022-2025 Région académique Bretagne
 Reading proxy config... OK
 Initializing database... OK
 Opening database connection sqlite://ac_rennes_eple_filter.db... OK
@@ -253,7 +252,7 @@ Cette fonctionnalité permet de contrôler la non-redondance des listes locales 
 
 ```
 $> ac_rennes_eple_filter-x.y.z.exe --optimize
-ac-rennes-eple-filter x.y Copyright (c) 2022-2023 Région académique Bretagne
+ac-rennes-eple-filter x.y Copyright (c) 2022-2025 Région académique Bretagne
 Reading proxy config... OK
 Initializing database... OK
 Opening database connection sqlite://ac_rennes_eple_filter.db... OK
@@ -277,7 +276,7 @@ Lancé sans paramètre, le programme propose un mode interactif permettant d'acc
 
 ```
 $> ac_rennes_eple_filter-x.y.z.exe
-ac-rennes-eple-filter x.y.z Copyright (c) 2022-2024 Région académique Bretagne
+ac-rennes-eple-filter x.y.z Copyright (c) 2022-2025 Région académique Bretagne
 Reading proxy config... OK
 Initializing database... OK
 Opening database connection sqlite://ac_rennes_eple_filter.db... OK

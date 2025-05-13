@@ -5,12 +5,11 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from PyInstaller.__main__ import run
 from colorama import Fore
 
-from common import colorize, COPYRIGHT
-from ac_rennes_eple_filter import VERSION
+from common import colorize, COPYRIGHT, APP_NAME, VERSION
 
 BUILD_DIR: Path = Path('build')
 DIST_DIR: Path = Path('dist')
-basename: str = f'ac_rennes_eple_filter-{VERSION}'
+basename: str = f'{APP_NAME}-{VERSION}'
 EXPORT_DIR: Path = Path('export')
 EXPORT_DATA_DIR: Path = Path('export-data')
 PROJECT_DIR: Path = EXPORT_DIR / basename
@@ -50,6 +49,8 @@ def build_exe():
         '--clean',
         '--noconfirm',
         '--name=' + basename,
+        '--copy-metadata',
+        'ac_rennes_eple_filter',
         '--onefile',
         '--add-data=policy.yml;.',
         '--add-data=templates/base.html;templates',
@@ -60,8 +61,6 @@ def build_exe():
         '--add-data=templates/check_rules.html;templates',
         '--add-data=templates/search.html;templates',
         '--add-data=templates/logo.css;templates',
-        '--add-data=venv/Lib/site-packages/tldextract/.tld_set_snapshot;tldextract',
-        '--add-data=venv/Lib/site-packages/whois/data/public_suffix_list.dat;whois/data',
         '--paths=.',
         '--icon=ac_rennes_eple_filter.ico',
         'ac_rennes_eple_filter.py',
@@ -101,7 +100,7 @@ def create_project():
         print(f'Creating batch file {target_file}...')
         with open(target_file, 'wt') as f:
             f.write(f'@echo off\n'
-                    f'echo ac_rennes_eple_filter {VERSION} - {COPYRIGHT}\n'
+                    f'echo {APP_NAME} {VERSION} - {COPYRIGHT}\n'
                     f'echo Chargement du programme, veuillez patienter...\n'
                     f'{EXE_FILENAME} {targets[target_id]}\n'
                     f'pause\n')
